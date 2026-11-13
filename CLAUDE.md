@@ -30,6 +30,14 @@ cd server
 .venv/bin/python ../tools/prova_mac.py --token <gettone> [--scrivi]
 ```
 
+App Android (Java 17 di Homebrew, SDK in `/opt/homebrew/share/android-commandlinetools`):
+
+```bash
+cd android
+JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew assembleDebug testDebugUnitTest lintDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
 ## Changelog
 
 `docs/00_CHANGELOG.md`, in italiano per chi non legge codice, a ogni commit.

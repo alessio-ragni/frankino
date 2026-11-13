@@ -34,6 +34,31 @@ cp ../.env.example .env        # riempi FRANKINO_TOKEN e OPENAI_API_KEY
 Per provarlo senza tablet, dal Mac: `.venv/bin/python ../tools/prova_mac.py --token <gettone>`
 (a voce) o con `--scrivi` (a testo).
 
+## L'app Android
+
+Sta in `android/`. Serve Java 17 e l'Android SDK (platform 37.1); sul Mac con Homebrew:
+`brew install openjdk@17 android-commandlinetools`, poi
+`sdkmanager "platform-tools" "platforms;android-37.1" "build-tools;36.0.0"`.
+
+```bash
+cd android
+echo "sdk.dir=/opt/homebrew/share/android-commandlinetools" > local.properties
+JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew assembleDebug testDebugUnitTest
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Al primo avvio chiede il microfono e le notifiche, poi l'indirizzo del server (il nome su
+Tailscale, per esempio `mio-mac:4390`) e il gettone. Scarica una volta il modello italiano piccolo
+di [Vosk](https://alphacephei.com/vosk/models) (circa 50 MB) per la parola d'avvio.
+
+Come ascolta:
+- **Aspetta il nome** («Franco», «Franchino», «Frankino»). Lo riconosce sul tablet con una
+  grammatica chiusa: finché non lo sente, al server non parte niente.
+- **Subito dopo una risposta** ascolta qualche secondo anche senza nome, e mentre c'è una conferma
+  aperta aspetta il tuo «sì» o «no».
+- **Se lo richiami mentre parla** si zittisce e ti ascolta. Il pulsante «Parla» fa lo stesso a mano.
+- Lo schermo disegna l'A2UI con il renderer ufficiale per Compose (`androidx.a2ui`, alpha).
+
 ## Le azioni verso fuori
 
 Ogni strumento che non è chiaramente di sola lettura chiede conferma: lo schermo mostra cosa sta
@@ -48,5 +73,5 @@ scambi e i permessi. Tutto in `FRANKINO_DATA`, mai nella repo.
 ## Struttura
 
 - `server/` — FastAPI + Claude Agent SDK. Protocollo col tablet: [`docs/protocollo.md`](docs/protocollo.md).
-- `android/` — l'app (in arrivo).
+- `android/` — l'app per il tablet (Kotlin + Compose).
 - `tools/` — attrezzi per provare.
