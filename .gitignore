@@ -1,0 +1,25 @@
+# segreti e dati: non entrano mai nella repo
+.env
+*.env
+!.env.example
+data/
+*.db
+*.db-wal
+*.db-shm
+*.wav
+# python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+# android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.jks
+*.keystore
+.DS_Store
+# board k0: resta solo sul Mac
+.k0/
