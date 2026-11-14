@@ -81,6 +81,17 @@ class Store:
         )
         self.conn.commit()
 
+    def forget_recording(self, rid: int, reason: str) -> None:
+        """Una registrazione che non era per Frankino: via l'audio e il testo, resta solo che c'è stata."""
+        row = self.conn.execute("SELECT path FROM recordings WHERE id = ?", (rid,)).fetchone()
+        if row and row["path"]:
+            Path(row["path"]).unlink(missing_ok=True)
+        self.conn.execute(
+            "UPDATE recordings SET path = NULL, transcript = NULL, error = ?, purged_at = ? WHERE id = ?",
+            (reason, _now().isoformat(), rid),
+        )
+        self.conn.commit()
+
     def purge(self, days: int, now: datetime | None = None) -> int:
         """Toglie gli audio più vecchi di `days` giorni. Il testo resta."""
         limit = ((now or _now()) - timedelta(days=days)).isoformat()

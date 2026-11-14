@@ -22,6 +22,19 @@ class ProtocolTest {
     }
 
     @Test
+    fun readsIgnored() {
+        assertEquals(Incoming.Ignored("non chiamato"), parseIncoming("""{"type":"ignored","reason":"non chiamato"}"""))
+    }
+
+    @Test
+    fun startSaysWhyItListens() {
+        val start = Json.parseToJsonElement(Outgoing.start(Ears.Why.FOLLOW)).jsonObject
+        assertEquals("start", start["type"]!!.jsonPrimitive.content)
+        assertEquals("follow", start["why"]!!.jsonPrimitive.content)
+        assertEquals(16000, start["rate"]!!.jsonPrimitive.content.toInt())
+    }
+
+    @Test
     fun readsScreenMessagesKeepingThemWhole() {
         val m = parseIncoming(
             """{"type":"a2ui","messages":[

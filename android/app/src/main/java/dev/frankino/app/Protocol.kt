@@ -30,6 +30,8 @@ sealed interface Incoming {
     data object SayEnd : Incoming
     data class Screen(val messages: List<ScreenMessage>) : Incoming
     data class Done(val ms: Long?) : Incoming
+    /** Non era per Frankino: nessuna risposta, si torna ad aspettare il nome. */
+    data class Ignored(val reason: String) : Incoming
     data class Failure(val text: String) : Incoming
     data class Unknown(val type: String?) : Incoming
 }
@@ -57,6 +59,7 @@ fun parseIncoming(text: String): Incoming {
         "say_end" -> Incoming.SayEnd
         "a2ui" -> Incoming.Screen(screenMessages(obj["messages"]))
         "done" -> Incoming.Done((obj["ms"] as? JsonPrimitive)?.longOrNull)
+        "ignored" -> Incoming.Ignored(obj.str("reason").orEmpty())
         "error" -> Incoming.Failure(obj.str("text").orEmpty())
         else -> Incoming.Unknown(type)
     }
@@ -73,9 +76,10 @@ private fun screenMessages(element: JsonElement?): List<ScreenMessage> {
 }
 
 object Outgoing {
-    fun start(rate: Int = INPUT_RATE): String = buildJsonObject {
+    fun start(why: String, rate: Int = INPUT_RATE): String = buildJsonObject {
         put("type", "start")
         put("rate", rate)
+        put("why", why)
     }.toString()
 
     fun end(rate: Int = INPUT_RATE): String = buildJsonObject {

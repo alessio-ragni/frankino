@@ -15,6 +15,7 @@ def settings(tmp_path: Path) -> Settings:
         port=0,
         token="prova",
         model="finto",
+        effort="low",
         tz="Europe/Rome",
         stt="openai",
         tts="openai",

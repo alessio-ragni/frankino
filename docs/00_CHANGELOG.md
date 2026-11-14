@@ -1,5 +1,17 @@
 # Changelog
 
+## 14 novembre 2026 — v1: si sveglia solo col nome, ha il suo interruttore, pensa con Haiku
+
+**Frankino non si attiva più da solo con i discorsi di casa, e si può spegnere come Alexa. Risponde prima, capisce anche l'inglese, e c'è una spiegazione semplice di come funziona.**
+
+1. **Mai senza nome.** Il tablet ogni tanto credeva di sentire «Franco» in mezzo a un discorso. Adesso il server ricontrolla sulla frase trascritta: se non comincia col nome, la butta subito, audio e testo, e Frankino tace.
+2. **Il seguito senza nome è più prudente.** Dopo una risposta ascolta meno a lungo e solo una voce vera. Scarta la sua stessa voce, e se capisce che state parlando fra voi non risponde.
+3. **L'interruttore del microfono, come quello di Alexa.** Un pulsante grande nell'app, un'azione nella notifica e un riquadro «Frankino» nel pannello rapido. Spento vuol dire microfono chiuso davvero; resta spento anche dopo un riavvio.
+4. **Pensa con Claude Haiku**, con poco ragionamento: risponde prima e consuma molto meno dell'abbonamento. Si torna a Sonnet o Opus con una riga.
+5. **Italiano e inglese.** La trascrizione riconosce la lingua da sola, e Frankino risponde nella lingua in cui gli parli.
+6. **Le conversazioni con Claude non si salvano su disco** sul server.
+7. **Come funziona, spiegato senza codice**: `docs/come-funziona.md`.
+
 ## 14 novembre 2026 — Frankino gira davvero: tablet, server su AWS, tasto laterale
 
 **Il tablet è arrivato e Frankino risponde a voce da lì. Il cervello non sta più sul Mac: vive su un server tutto suo, sempre acceso, in una rete privata.**

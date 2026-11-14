@@ -7,8 +7,12 @@ from collections.abc import AsyncIterator
 from frankino.config import Settings
 
 VOICE_STYLE = (
-    "Parla in italiano, con tono caldo e naturale, come un amico di casa. Ritmo sciolto, niente enfasi da annunciatore."
+    "Parla nella lingua del testo (di solito italiano), con tono caldo e naturale, come un amico di casa. "
+    "Ritmo sciolto, niente enfasi da annunciatore."
 )
+
+# La lingua la riconosce da sé (italiano o inglese); i nomi suggeriti lo aiutano a scriverli giusti.
+HINT = "Frankino, Franco, Franchino, Franko."
 
 
 def _client(s: Settings):
@@ -30,7 +34,7 @@ class OpenAITranscriber:
         out = await self.client.audio.transcriptions.create(
             model=self.model,
             file=("voce.wav", wav, "audio/wav"),
-            language="it",
+            prompt=HINT,
         )
         return (out.text or "").strip()
 

@@ -51,6 +51,7 @@ class Agent:
         options = ClaudeAgentOptions(
             system_prompt=system_prompt(self.s),
             model=self.s.model,
+            effort=self.s.effort or None,
             tools=["WebSearch", "WebFetch"],
             mcp_servers={"schermo": self.screen},
             setting_sources=["user"],
@@ -58,6 +59,9 @@ class Agent:
             hooks={"PreToolUse": [HookMatcher(matcher=None, hooks=[self.gate.pre_tool_use])]},
             include_partial_messages=True,
             cwd=str(self.s.work_dir),
+            # Le conversazioni non si salvano su disco: Frankino non le riprende, e così quello
+            # che si dice in casa non resta nei file di Claude Code.
+            extra_args={"no-session-persistence": None},
         )
         self.client = ClaudeSDKClient(options=options)
         await self.client.connect()

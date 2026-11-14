@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -123,11 +124,26 @@ private fun MainScreen(onSettings: () -> Unit) {
     val error by Hub.error.collectAsState()
     val progress by Hub.earsProgress.collectAsState()
     val surfaces by Hub.screen(context).activeSurfaces.collectAsState()
+    val micOn by Hub.micOn.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(phase.label, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             TextButton(onClick = onSettings) { Text("Impostazioni") }
+        }
+        // L'interruttore del microfono, come il tasto di Alexa: rosso quando è spento.
+        Button(
+            onClick = { Hub.commands.tryEmit(Command.Mic(!micOn)) },
+            colors = if (micOn) ButtonDefaults.filledTonalButtonColors() else ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+            ),
+            modifier = Modifier.fillMaxWidth().height(64.dp).padding(top = 8.dp),
+        ) {
+            Text(
+                if (micOn) "Microfono acceso · tocca per spegnere" else "Microfono spento · tocca per riaccendere",
+                style = MaterialTheme.typography.titleMedium,
+            )
         }
         progress?.let {
             Text("Scarico la parola d'avvio: $it%", style = MaterialTheme.typography.bodySmall)

@@ -59,6 +59,11 @@ Come ascolta:
 - **Se lo richiami mentre parla** si zittisce e ti ascolta. Il pulsante «Parla» fa lo stesso a mano.
 - Lo schermo disegna l'A2UI con il renderer ufficiale per Compose (`androidx.a2ui`, alpha).
 
+## Come funziona
+
+Il giro di una domanda, cosa resta e dove, modello e costi, connettori, l'interruttore del
+microfono e le differenze con Claude, spiegati senza codice: [`docs/come-funziona.md`](docs/come-funziona.md).
+
 ## Messa in opera
 
 Server su AWS dentro una rete Tailscale, tablet configurato da adb, tasto laterale al posto di
@@ -73,7 +78,8 @@ più» vale per quello strumento e si ritira (`POST /permessi/ritira?tool=…`).
 ## Cosa resta sul server
 
 Gli audio di quello che dici, per 30 giorni (poi si cancellano, il testo resta), le trascrizioni, gli
-scambi e i permessi. Tutto in `FRANKINO_DATA`, mai nella repo.
+scambi e i permessi. Tutto in `FRANKINO_DATA`, mai nella repo. Le registrazioni che non erano per Frankino (si
+era svegliato senza che nessuno lo chiamasse) si cancellano subito, audio e testo.
 
 ## Struttura
 

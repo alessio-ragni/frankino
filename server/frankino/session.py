@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import WebSocket
 
 from frankino import a2ui
+from frankino.addressed import called, echo, silent
 from frankino.agent import Agent
 from frankino.audio import INPUT_RATE, louder, to_wav
 from frankino.config import Settings
@@ -33,6 +34,10 @@ MIN_SECONDS = 0.3
 BROKEN = "Non arrivo al mio cervello. Riprova tra poco."
 NOT_HEARD = "Non ti ho sentito bene, me lo ripeti?"
 YES_OR_NO = "Dimmi sì, no, oppure non chiedermelo più."
+
+# Perché il tablet ha cominciato ad ascoltare. Senza indicazione vale il caso più prudente.
+WHY_NAME, WHY_FOLLOW = "name", "follow"
+FOLLOW_PREFIX = "[seguito, senza nome] "
 
 AgentFactory = Callable[[Settings, Any, Gate], Any]
 
@@ -61,6 +66,8 @@ class Session:
         self._cut = False
         self._pcm = bytearray()
         self._recording = False
+        self._why = WHY_NAME
+        self._said = ""
         self._turn: asyncio.Task | None = None
         self._tasks: set[asyncio.Task] = set()
 
@@ -106,11 +113,12 @@ class Session:
             self._hush()
             self._pcm.clear()
             self._recording = True
+            self._why = str(m.get("why") or WHY_NAME)
         elif kind == "end":
             self._recording = False
             pcm = bytes(self._pcm)
             self._pcm.clear()
-            self._spawn(self._heard(pcm, int(m.get("rate") or INPUT_RATE)))
+            self._spawn(self._heard(pcm, int(m.get("rate") or INPUT_RATE), self._why))
         elif kind == "text":
             await self._handle(str(m.get("text", "")).strip(), None)
         elif kind == "action":
@@ -130,7 +138,7 @@ class Session:
         context = json.dumps(m.get("context", {}), ensure_ascii=False)
         await self._handle(f"[sullo schermo, superficie {m.get('surfaceId')}: azione «{name}» {context}]", None)
 
-    async def _heard(self, pcm: bytes, rate: int) -> None:
+    async def _heard(self, pcm: bytes, rate: int, why: str = WHY_NAME) -> None:
         if len(pcm) / 2 / rate < MIN_SECONDS:
             return
         rid = self.store.save_recording(pcm, self.device, rate)
@@ -145,12 +153,27 @@ class Session:
             self.store.set_transcript(rid, None, self.stt.name, repr(bad))
             self.say(NOT_HEARD)
             return
+        # Il tablet si è svegliato da solo: se la frase non comincia col nome, nessuno lo chiamava.
+        # Dopo una risposta, invece, conta solo che non sia l'eco della sua voce.
+        if why == WHY_NAME and not called(text):
+            await self._ignore(rid, "non chiamato")
+            return
+        if why == WHY_FOLLOW and (not text or echo(text, self._said)):
+            await self._ignore(rid, "eco")
+            return
         self.store.set_transcript(rid, text, self.stt.name)
         await self._send({"type": "heard", "text": text, "recording": rid})
         if text:
-            await self._handle(text, rid)
+            await self._handle(text, rid, follow=why == WHY_FOLLOW)
 
-    async def _handle(self, text: str, rid: int | None) -> None:
+    async def _ignore(self, rid: int | None, reason: str) -> None:
+        """Non era per Frankino: non si risponde e non si tiene né l'audio né il testo."""
+        if rid is not None:
+            self.store.forget_recording(rid, reason)
+        log.info("scartato: %s", reason)
+        await self._send({"type": "ignored", "reason": reason})
+
+    async def _handle(self, text: str, rid: int | None, follow: bool = False) -> None:
         if not text:
             return
         if self.gate.pending:
@@ -167,21 +190,37 @@ class Session:
                 await self.agent.interrupt()
             with contextlib.suppress(BaseException):
                 await asyncio.wait_for(self._turn, timeout=5)
-        self._turn = asyncio.create_task(self._converse(text, rid))
+        self._turn = asyncio.create_task(self._converse(text, rid, follow))
 
-    async def _converse(self, text: str, rid: int | None) -> None:
+    async def _converse(self, text: str, rid: int | None, follow: bool = False) -> None:
         started = time.monotonic()
         await self._send({"type": "thinking"})
         splitter = Splitter()
         error = None
         answered = ""
+        self._said = ""
+        # Nel seguito senza nome Claude può rispondere solo «…» (parlavano fra loro): finché
+        # arrivano solo puntini si aspetta, poi si parla o si tace.
+        held: list[str] = []
+        decided = not follow
 
         def piece(delta: str) -> None:
+            nonlocal decided
+            if not decided:
+                held.append(delta)
+                joined = "".join(held)
+                if not joined.strip() or silent(joined):
+                    return
+                decided = True
+                delta = joined
             for sentence in splitter.feed(delta):
                 self.say(sentence)
 
         try:
-            answered = await self.agent.ask(text, on_text=piece)
+            answered = await self.agent.ask(FOLLOW_PREFIX + text if follow else text, on_text=piece)
+            if not decided:
+                await self._ignore(rid, "non per me")
+                return
             for sentence in splitter.flush():
                 self.say(sentence)
         except asyncio.CancelledError:
@@ -201,6 +240,8 @@ class Session:
     # ── la voce ────────────────────────────────────────────────────────────
 
     def say(self, text: str) -> None:
+        # Quello che ha detto nel turno, per riconoscere l'eco al giro dopo.
+        self._said = (self._said + " " + text)[-2000:]
         self._speech.put_nowait(text)
 
     def _hush(self) -> None:

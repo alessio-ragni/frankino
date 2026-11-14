@@ -20,8 +20,11 @@ import kotlin.math.sqrt
  */
 class Ears(private val listener: Listener) {
     interface Listener {
-        /** Comincia a mandare: `lead` è l'audio appena prima, così il nome non si perde. */
-        fun onBegin(lead: ByteArray)
+        /**
+         * Comincia a mandare: `lead` è l'audio appena prima, così il nome non si perde. `why` dice
+         * al server perché si ascolta (vedi [Why]).
+         */
+        fun onBegin(lead: ByteArray, why: String)
         fun onMic(pcm: ByteArray)
         fun onEnd()
         /** Il nome detto mentre Frankino parla o pensa. */
@@ -30,6 +33,14 @@ class Ears(private val listener: Listener) {
     }
 
     enum class Mode { OFF, WAKE, FOLLOW, RECORDING, BUSY }
+
+    /** Perché si è cominciato ad ascoltare: il server ricontrolla il nome solo per [NAME]. */
+    object Why {
+        const val NAME = "name"
+        const val FOLLOW = "follow"
+        const val BUTTON = "button"
+        const val KEY = "key"
+    }
 
     @Volatile var mode = Mode.OFF
         private set
@@ -79,6 +90,9 @@ class Ears(private val listener: Listener) {
         }
     }
 
+    /** Il microfono è aperto? Spento dall'interruttore, Android non mostra più il pallino verde. */
+    val micOpen: Boolean get() = running
+
     @SuppressLint("MissingPermission")
     fun start() {
         if (running) return
@@ -86,10 +100,17 @@ class Ears(private val listener: Listener) {
         thread = Thread({ loop() }, "frankino-ears").apply { start() }
     }
 
-    fun stop() {
+    /** Chiude davvero il microfono, ma tiene pronta la parola d'avvio per quando si riapre. */
+    fun closeMic() {
+        set(Mode.OFF)
         running = false
-        thread?.join(1000)
+        // Può chiederlo il filo stesso del microfono (fine del seguito): in quel caso basta uscire dal giro.
+        if (Thread.currentThread() != thread) thread?.join(1000)
         thread = null
+    }
+
+    fun stop() {
+        closeMic()
         recognizer?.close()
         model?.close()
         recognizer = null
@@ -139,13 +160,13 @@ class Ears(private val listener: Listener) {
             Mode.OFF -> remember(chunk)
             Mode.WAKE -> {
                 remember(chunk)
-                if (wake(chunk)) begin()
+                if (wake(chunk)) begin(Why.NAME)
             }
             Mode.BUSY -> {
                 remember(chunk)
                 if (wake(chunk)) {
                     listener.onBargeIn()
-                    begin()
+                    begin(Why.NAME)
                 }
             }
             Mode.FOLLOW -> {
@@ -156,7 +177,7 @@ class Ears(private val listener: Listener) {
                 remember(chunk)
                 speechMs = if (loud) speechMs + ms else 0
                 if (speechMs >= FOLLOW_TRIGGER_MS) {
-                    begin()
+                    begin(Why.FOLLOW)
                 } else if (modeMs >= followLimitMs) {
                     set(Mode.WAKE)
                     listener.onFollowUpExpired()
@@ -181,21 +202,21 @@ class Ears(private val listener: Listener) {
     /** Dal pulsante: comincia ad ascoltare subito, o smetti se stava già ascoltando. */
     @Synchronized
     fun toggle() {
-        if (mode == Mode.RECORDING) finish() else begin()
+        if (mode == Mode.RECORDING) finish() else begin(Why.BUTTON)
     }
 
     /** Ascolta subito, senza nome (tasto laterale). Se sta già ascoltando, continua. */
     @Synchronized
     fun listenNow() {
-        if (mode != Mode.RECORDING) begin()
+        if (mode != Mode.RECORDING) begin(Why.KEY)
     }
 
-    private fun begin() {
+    private fun begin(why: String) {
         val before = lead.fold(ByteArray(0)) { acc, b -> acc + b }
         lead.clear()
         set(Mode.RECORDING)
         heardSpeech = before.isNotEmpty() && rms(before) > max(noise * SPEECH_OVER_NOISE, MIN_SPEECH_RMS)
-        listener.onBegin(before)
+        listener.onBegin(before, why)
     }
 
     private fun finish() {
@@ -239,8 +260,10 @@ class Ears(private val listener: Listener) {
         const val LEAD_MS = 3000
         const val SETTLE_MS = 700
         const val TAIL_MS = 400
-        const val FOLLOW_MS = 7000
-        const val FOLLOW_TRIGGER_MS = 200
+        // Dopo una risposta si ascolta poco e solo una voce vera: il chiacchiericcio di casa non deve
+        // ripartire da solo. Il server poi scarta l'eco e quello che non era per Frankino.
+        const val FOLLOW_MS = 5000
+        const val FOLLOW_TRIGGER_MS = 400
         const val END_SILENCE_MS = 1300
         const val NOTHING_SAID_MS = 5000
         const val MAX_RECORDING_MS = 5 * 60 * 1000

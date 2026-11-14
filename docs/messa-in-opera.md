@@ -29,7 +29,10 @@ Tablet ──Tailscale (rete privata)──► macchina «frankino» su AWS (Ubu
 
 - Lo chiami per nome: «Frankino», «Franco», «Franchino», «Franko», anche con un saluto davanti
   («ehi», «hey», «hei», «ciao», «hi»). Il nome lo riconosce il tablet da solo: finché non lo sente,
-  al server non parte niente. Il nome detto a metà frase («ho visto Franco») non lo sveglia.
+  al server non parte niente. Il nome detto a metà frase («ho visto Franco») non lo sveglia, e se il
+  tablet si sbaglia il server lo ricontrolla sulla trascrizione e butta tutto.
+- Ha un interruttore del microfono (app, notifica, pannello rapido), come quello di Alexa.
+- Capisce e risponde in italiano e in inglese.
 - Tenendo premuto il tasto laterale si apre Frankino già in ascolto, al posto di Gemini.
 - Ti risponde a voce mentre ancora pensa, e mostra sullo schermo ricette, liste e confronti (A2UI,
   renderer ufficiale di Android).
@@ -110,6 +113,9 @@ adb shell settings put global stay_on_while_plugged_in 7   # schermo acceso in c
 # Frankino assistente predefinito: tasto laterale tenuto premuto → Frankino, e Gemini esce di scena
 adb shell cmd role add-role-holder android.app.role.ASSISTANT $P
 
+# Il riquadro «Frankino» (interruttore del microfono) nel pannello rapido
+adb shell cmd statusbar add-tile $P/.MicTile
+
 # Tailscale sempre acceso, anche dopo un riavvio
 adb shell settings put secure always_on_vpn_app com.tailscale.ipn
 ```
@@ -144,3 +150,6 @@ Per vedere e comandare lo schermo del tablet dal computer: `brew install scrcpy 
 - **Da lontano** la voce arriva piano: il server la alza (fino a 8 volte) prima di trascriverla, e
   l'app considera parlato anche un livello più basso.
 - **Il gettone** viaggia nell'indirizzo del websocket: il server lo toglie dai registri.
+- **Falsi risvegli:** il primo giorno il riconoscitore del tablet si svegliava con i discorsi di
+  casa, e dopo ogni risposta il seguito senza nome si portava dietro altre frasi. Da allora il
+  server ricontrolla il nome sulla trascrizione vera, e il seguito è più corto e più esigente.

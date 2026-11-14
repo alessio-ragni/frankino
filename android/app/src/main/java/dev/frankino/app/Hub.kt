@@ -33,6 +33,7 @@ enum class Phase(val label: String) {
     RECORDING("Sto ascoltando…"),
     THINKING("Ci penso…"),
     SPEAKING("Parlo"),
+    MUTED("Microfono spento"),
 }
 
 sealed interface Command {
@@ -41,6 +42,8 @@ sealed interface Command {
     /** Dal tasto laterale (assistente): ascolta subito, senza nome. */
     data object Listen : Command
     data object Reconnect : Command
+    /** L'interruttore: microfono acceso (si ascolta il nome) o spento (chiuso davvero). */
+    data class Mic(val on: Boolean) : Command
 }
 
 /** Lo stato condiviso fra il servizio che ascolta e lo schermo che mostra. */
@@ -52,6 +55,7 @@ object Hub {
     val said = MutableStateFlow("")
     val error = MutableStateFlow<String?>(null)
     val earsProgress = MutableStateFlow<Int?>(null)
+    val micOn = MutableStateFlow(true)
     val commands = MutableSharedFlow<Command>(extraBufferCapacity = 8)
 
     /** Chiesto di ascoltare prima che il filo col server fosse pronto: si ascolta appena lo è. */

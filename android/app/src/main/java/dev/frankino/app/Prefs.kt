@@ -14,5 +14,10 @@ class Prefs(context: Context) {
         get() = sp.getString("token", "").orEmpty()
         set(value) = sp.edit().putString("token", value.trim()).apply()
 
+    /** L'interruttore del microfono: resta com'è anche dopo un riavvio. */
+    var micOn: Boolean
+        get() = sp.getBoolean("mic", true)
+        set(value) = sp.edit().putBoolean("mic", value).apply()
+
     val ready: Boolean get() = server.isNotBlank() && token.isNotBlank()
 }

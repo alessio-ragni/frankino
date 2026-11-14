@@ -32,7 +32,7 @@ class ElevenLabsTranscriber:
             r = await client.post(
                 f"{BASE}/speech-to-text",
                 headers=self.headers,
-                data={"model_id": self.model, "language_code": "ita"},
+                data={"model_id": self.model},  # lingua riconosciuta da sé
                 files={"file": ("voce.wav", wav, "audio/wav")},
             )
             r.raise_for_status()
@@ -57,7 +57,7 @@ class ElevenLabsSpeaker:
                 f"{BASE}/text-to-speech/{self.voice}/stream",
                 params={"output_format": "pcm_24000"},
                 headers=self.headers,
-                json={"text": text, "model_id": self.model, "language_code": "it"},
+                json={"text": text, "model_id": self.model},
             ) as r:
                 r.raise_for_status()
                 async for chunk in r.aiter_bytes(4800):

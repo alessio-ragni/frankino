@@ -34,6 +34,8 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
     // Lo stato del turno.
     @Volatile private var turnOpen = false
     @Volatile private var confirmOpen = false
+    // Una conferma chiusa in questo turno: alla fine non si ascolta senza nome.
+    @Volatile private var confirmDone = false
     @Volatile private var endedAt = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -41,6 +43,7 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
     override fun onCreate() {
         super.onCreate()
         prefs = Prefs(this)
+        Hub.micOn.value = prefs.micOn
         link = Link(this)
         ears = Ears(this)
         try {
@@ -59,15 +62,19 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
 
         Hub.onAction = { link.send(it) }
         Hub.screen(this)
-        ears.start()
+        if (prefs.micOn) ears.start()
         jobs += Hub.scope.launch { prepareEars() }
         jobs += Hub.scope.launch { Hub.commands.collect { onCommand(it) } }
         jobs += Hub.scope.launch { watchVoice() }
         connect()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int =
-        if (stopped) START_NOT_STICKY else START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (stopped) return START_NOT_STICKY
+        // Dalla notifica o dal riquadro del pannello rapido.
+        if (intent?.action == ACTION_MIC) Hub.commands.tryEmit(Command.Mic(intent.getBooleanExtra(EXTRA_ON, true)))
+        return START_STICKY
+    }
 
     override fun onDestroy() {
         if (stopped) {
@@ -113,6 +120,8 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
         when (command) {
             Command.Talk -> {
                 if (ears.mode != Ears.Mode.RECORDING) hushLocally()
+                // A microfono spento il pulsante lo apre per una domanda sola.
+                if (!ears.micOpen) ears.start()
                 ears.toggle()
             }
             Command.Hush -> {
@@ -130,19 +139,55 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
                 Hub.listenWhenReady = false
                 hushLocally()
                 if (turnOpen) link.send(Outgoing.stop())
+                if (!ears.micOpen) ears.start()
                 ears.listenNow()
             }
+            is Command.Mic -> setMic(command.on)
         }
+    }
+
+    /** L'interruttore, come quello di Alexa: spento vuol dire microfono chiuso, non solo sordo. */
+    private fun setMic(on: Boolean) {
+        prefs.micOn = on
+        Hub.micOn.value = on
+        if (on) {
+            if (!ears.micOpen) ears.start()
+            if (link.connected && ears.mode != Ears.Mode.RECORDING) listen()
+        } else if (ears.mode != Ears.Mode.RECORDING && !turnOpen) {
+            listen()
+        }
+        // Se sta ascoltando o rispondendo, il microfono si chiude a fine turno (in listen()).
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
+        MicTile.refresh(this)
     }
 
     private fun hushLocally() {
         voice.hush()
     }
 
-    /** Torna ad aspettare il nome (o, se non c'è la parola d'avvio, il pulsante). */
+    /**
+     * Torna ad aspettare il nome (o, se non c'è la parola d'avvio, il pulsante). A microfono spento
+     * invece lo chiude: anche dopo una domanda fatta col pulsante.
+     */
     private fun listen() {
+        if (!prefs.micOn) {
+            ears.closeMic()
+            Hub.phase.value = if (link.connected) Phase.MUTED else Phase.OFFLINE
+            return
+        }
+        if (!ears.micOpen) ears.start()
         ears.set(Ears.Mode.WAKE)
         Hub.phase.value = if (link.connected) Phase.LISTENING else Phase.OFFLINE
+    }
+
+    /** Dopo una risposta: qualche secondo senza nome, tranne se il microfono è spento o c'era una conferma. */
+    private fun followUp() {
+        if (!prefs.micOn || confirmDone) {
+            listen()
+            return
+        }
+        ears.set(Ears.Mode.FOLLOW)
+        Hub.phase.value = Phase.FOLLOW_UP
     }
 
     /**
@@ -162,10 +207,7 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
                     ears.set(Ears.Mode.FOLLOW, followLimit = CONFIRM_LISTEN_MS)
                     Hub.phase.value = Phase.FOLLOW_UP
                 }
-                !turnOpen && Hub.phase.value == Phase.SPEAKING -> {
-                    ears.set(Ears.Mode.FOLLOW)
-                    Hub.phase.value = Phase.FOLLOW_UP
-                }
+                !turnOpen && Hub.phase.value == Phase.SPEAKING -> followUp()
                 // Il server non ha risposto (audio vuoto o troppo corto): si torna ad ascoltare.
                 !turnOpen && Hub.phase.value == Phase.THINKING && stale -> listen()
             }
@@ -193,6 +235,7 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
             is Incoming.Heard -> Hub.heard.value = m.text
             Incoming.Thinking -> {
                 turnOpen = true
+                confirmDone = false
                 Hub.said.value = ""
                 Hub.phase.value = Phase.THINKING
                 if (ears.mode != Ears.Mode.RECORDING) ears.set(Ears.Mode.BUSY)
@@ -207,7 +250,10 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
             is Incoming.Screen -> m.messages.forEach { msg ->
                 if (msg.surfaceId == CONFIRM_SURFACE) {
                     if (msg.kind == "createSurface") confirmOpen = true
-                    if (msg.kind == "deleteSurface") confirmOpen = false
+                    if (msg.kind == "deleteSurface") {
+                        confirmOpen = false
+                        confirmDone = true
+                    }
                 }
                 Hub.scope.launch(Dispatchers.Main) {
                     runCatching { Hub.show(this@FrankinoService, msg) }
@@ -216,11 +262,15 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
             }
             is Incoming.Done -> {
                 turnOpen = false
-                if (Hub.phase.value != Phase.SPEAKING && ears.mode == Ears.Mode.BUSY) {
-                    // Nessuna voce (o già finita): si ascolta subito senza nome.
-                    ears.set(Ears.Mode.FOLLOW)
-                    Hub.phase.value = Phase.FOLLOW_UP
-                }
+                // Nessuna voce (o già finita): si ascolta subito senza nome.
+                if (Hub.phase.value != Phase.SPEAKING && ears.mode == Ears.Mode.BUSY) followUp()
+            }
+            is Incoming.Ignored -> {
+                // Non era per Frankino: niente seguito, si torna ad aspettare il nome.
+                Log.i(TAG, "scartato dal server: ${m.reason}")
+                turnOpen = false
+                Hub.heard.value = ""
+                if (ears.mode == Ears.Mode.BUSY || ears.mode == Ears.Mode.FOLLOW) listen()
             }
             is Incoming.Failure -> Hub.error.value = m.text
             is Incoming.Unknown -> Unit
@@ -239,10 +289,10 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
 
     // ── le orecchie ─────────────────────────────────────────────────────────
 
-    override fun onBegin(lead: ByteArray) {
+    override fun onBegin(lead: ByteArray, why: String) {
         Hub.phase.value = Phase.RECORDING
         Hub.heard.value = ""
-        link.send(Outgoing.start())
+        link.send(Outgoing.start(why))
         if (lead.isNotEmpty()) link.send(lead)
     }
 
@@ -262,7 +312,7 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
     }
 
     override fun onFollowUpExpired() {
-        Hub.phase.value = if (link.connected) Phase.LISTENING else Phase.OFFLINE
+        listen()
     }
 
     private fun notification(): Notification {
@@ -275,11 +325,19 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
         )
+        val on = prefs.micOn
+        val toggle = PendingIntent.getService(
+            this, 1, micIntent(this, !on), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val action = Notification.Action.Builder(
+            null, if (on) "Spegni microfono" else "Riaccendi microfono", toggle,
+        ).build()
         return Notification.Builder(this, CHANNEL)
             .setContentTitle("Frankino")
-            .setContentText("Ti ascolto: chiamami per nome")
+            .setContentText(if (on) "Ti ascolto: chiamami per nome" else "Microfono spento: non ascolto niente")
             .setSmallIcon(R.drawable.ic_frankino)
             .setContentIntent(open)
+            .addAction(action)
             .setOngoing(true)
             .build()
     }
@@ -290,6 +348,11 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
         private const val NOTIFICATION_ID = 1
         private const val CONFIRM_LISTEN_MS = 60_000
         private const val NO_ANSWER_MS = 20_000L
+        const val ACTION_MIC = "dev.frankino.app.MICROFONO"
+        const val EXTRA_ON = "acceso"
+
+        fun micIntent(context: Context, on: Boolean): Intent =
+            Intent(context, FrankinoService::class.java).setAction(ACTION_MIC).putExtra(EXTRA_ON, on)
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, FrankinoService::class.java))

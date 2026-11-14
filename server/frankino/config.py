@@ -20,6 +20,7 @@ class Settings:
     port: int
     token: str
     model: str
+    effort: str
     tz: str
     stt: str
     tts: str
@@ -43,7 +44,9 @@ class Settings:
             host=_get("FRANKINO_HOST", "0.0.0.0"),
             port=int(_get("FRANKINO_PORT", "4390")),
             token=_get("FRANKINO_TOKEN"),
-            model=_get("FRANKINO_MODEL", "claude-sonnet-5-5"),
+            # Per la voce conta la prontezza: Haiku con poco ragionamento. Sonnet o Opus cambiando una riga.
+            model=_get("FRANKINO_MODEL", "claude-haiku-5-5"),
+            effort=_get("FRANKINO_EFFORT", "low"),
             tz=_get("FRANKINO_TZ", "Europe/Rome"),
             stt=_get("FRANKINO_STT", "openai"),
             tts=_get("FRANKINO_TTS", "openai"),
