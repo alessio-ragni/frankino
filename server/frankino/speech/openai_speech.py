@@ -11,9 +11,6 @@ VOICE_STYLE = (
     "Ritmo sciolto, niente enfasi da annunciatore."
 )
 
-# La lingua la riconosce da sé (italiano o inglese); i nomi suggeriti lo aiutano a scriverli giusti.
-HINT = "Frankino, Franco, Franchino, Franko."
-
 
 def _client(s: Settings):
     if not s.openai_api_key:
@@ -34,7 +31,8 @@ class OpenAITranscriber:
         out = await self.client.audio.transcriptions.create(
             model=self.model,
             file=("voce.wav", wav, "audio/wav"),
-            prompt=HINT,
+            # Lingua riconosciuta da sé (italiano o inglese). Niente suggerimento coi nomi: sul silenzio
+            # il trascrittore lo ripete tale e quale, e sembrerebbe un richiamo.
         )
         return (out.text or "").strip()
 
