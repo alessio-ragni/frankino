@@ -11,6 +11,7 @@
 5. **Italiano e inglese.** La trascrizione riconosce la lingua da sola, e Frankino risponde nella lingua in cui gli parli.
 6. **Le conversazioni con Claude non si salvano su disco** sul server.
 7. **Come funziona, spiegato senza codice**: `docs/come-funziona.md`.
+8. **Il silenzio non sembra più un richiamo.** Alla trascrizione non si suggeriscono più i nomi: quando non sentiva niente, il trascrittore li ripeteva e sembrava che qualcuno lo avesse chiamato.
 
 ## 14 novembre 2026 — Frankino gira davvero: tablet, server su AWS, tasto laterale
 
