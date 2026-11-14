@@ -1,5 +1,18 @@
 # Changelog
 
+## 14 novembre 2026 — Frankino gira davvero: tablet, server su AWS, tasto laterale
+
+**Il tablet è arrivato e Frankino risponde a voce da lì. Il cervello non sta più sul Mac: vive su un server tutto suo, sempre acceso, in una rete privata.**
+
+1. **Il server sta su AWS, sempre acceso.** Una macchina piccola (circa 15 $ al mese) raggiungibile solo dalla tua rete privata Tailscale: nessuna porta aperta su internet. Ogni notte copia il database in un archivio a parte.
+2. **I segreti non stanno da nessuna parte su disco.** La chiave per la voce e il gettone del tablet si leggono a ogni avvio da un archivio protetto di AWS.
+3. **Lo chiami anche con un saluto.** «Ehi Franko», «ciao Franchino», «hey Franco», «hi Franco», oltre al nome da solo. Il nome detto a metà frase («ho visto Franco») non lo sveglia più.
+4. **Il tasto laterale apre Frankino, non Gemini.** Tenendolo premuto Frankino si apre già in ascolto; anche «Hey Google» non è più l'assistente.
+5. **Non si risponde più da solo.** Subito dopo aver parlato il tablet sentiva ancora la sua voce e gliela rimandava: adesso quell'audio si scarta.
+6. **Ti sente meglio da lontano.** La voce lontana viene alzata prima di essere trascritta, e l'app la riconosce come parlato anche quando arriva bassa.
+7. **Il gettone non finisce nei registri del server.**
+8. **C'è la guida passo passo** per rifare tutto da zero: `docs/messa-in-opera.md`.
+
 ## 13 novembre 2026 — L'app per il tablet, e Frankino è pubblico
 
 **Frankino è su GitHub come progetto open source, e c'è la prima versione dell'app Android: pronta da installare sul tablet appena arriva.**

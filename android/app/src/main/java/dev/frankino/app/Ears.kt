@@ -47,6 +47,8 @@ class Ears(private val listener: Listener) {
     private var modeMs = 0
     private var followLimitMs = FOLLOW_MS
     private val lead = ArrayDeque<ByteArray>()
+    private var maybeMs = 0
+    private var deafMs = 0
 
     val hasWakeWord: Boolean get() = recognizer != null
 
@@ -67,7 +69,14 @@ class Ears(private val listener: Listener) {
         silenceMs = 0
         heardSpeech = false
         followLimitMs = followLimit
+        maybeMs = 0
         if (next == Mode.WAKE || next == Mode.BUSY) runCatching { recognizer?.reset() }
+        // Dopo che Frankino ha parlato, l'audio di prima è la sua voce: non va rimandato al server,
+        // e il primo istante si salta perché l'altoparlante sta ancora finendo.
+        if (next == Mode.FOLLOW) {
+            lead.clear()
+            deafMs = TAIL_MS
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -140,6 +149,10 @@ class Ears(private val listener: Listener) {
                 }
             }
             Mode.FOLLOW -> {
+                if (deafMs > 0) {
+                    deafMs -= ms
+                    return
+                }
                 remember(chunk)
                 speechMs = if (loud) speechMs + ms else 0
                 if (speechMs >= FOLLOW_TRIGGER_MS) {
@@ -171,6 +184,12 @@ class Ears(private val listener: Listener) {
         if (mode == Mode.RECORDING) finish() else begin()
     }
 
+    /** Ascolta subito, senza nome (tasto laterale). Se sta già ascoltando, continua. */
+    @Synchronized
+    fun listenNow() {
+        if (mode != Mode.RECORDING) begin()
+    }
+
     private fun begin() {
         val before = lead.fold(ByteArray(0)) { acc, b -> acc + b }
         lead.clear()
@@ -184,11 +203,26 @@ class Ears(private val listener: Listener) {
         listener.onEnd()
     }
 
+    /**
+     * Il nome sentito per ultimo resta «forse» finché non arriva la parola dopo: se è un'esca non
+     * era un richiamo, se dopo [SETTLE_MS] non è arrivato niente lo è.
+     */
     private fun wake(chunk: ByteArray): Boolean {
         val r = recognizer ?: return false
         val final = r.acceptWaveForm(chunk, chunk.size)
-        val heard = if (final) Wake.heard(r.result) else Wake.heard(r.partialResult)
-        if (heard) r.reset()
+        var verdict = Wake.verdict(if (final) r.result else r.partialResult)
+        if (verdict == Wake.Verdict.MAYBE) {
+            maybeMs += CHUNK_MS
+            if (maybeMs >= SETTLE_MS) verdict = Wake.Verdict.YES
+        } else {
+            maybeMs = 0
+        }
+        val heard = verdict == Wake.Verdict.YES
+        if (heard) {
+            Log.i(TAG, "chiamato")
+            r.reset()
+            maybeMs = 0
+        }
         return heard
     }
 
@@ -201,14 +235,18 @@ class Ears(private val listener: Listener) {
         private const val TAG = "frankino.ears"
         const val CHUNK_MS = 100
         const val CHUNK_BYTES = INPUT_RATE / 1000 * CHUNK_MS * 2
-        const val LEAD_MS = 1500
+        // Il nome può essere riconosciuto anche un secondo dopo averlo detto: si tiene il prima.
+        const val LEAD_MS = 3000
+        const val SETTLE_MS = 700
+        const val TAIL_MS = 400
         const val FOLLOW_MS = 7000
         const val FOLLOW_TRIGGER_MS = 200
         const val END_SILENCE_MS = 1300
         const val NOTHING_SAID_MS = 5000
         const val MAX_RECORDING_MS = 5 * 60 * 1000
         const val SPEECH_OVER_NOISE = 3.0
-        const val MIN_SPEECH_RMS = 500.0
+        // Da lontano la voce arriva sui 300-900, il silenzio di casa sotto i 50.
+        const val MIN_SPEECH_RMS = 200.0
 
         fun rms(pcm: ByteArray): Double {
             if (pcm.size < 2) return 0.0

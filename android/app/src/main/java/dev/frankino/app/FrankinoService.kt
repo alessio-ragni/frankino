@@ -122,6 +122,16 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
                 listen()
             }
             Command.Reconnect -> connect()
+            Command.Listen -> {
+                if (!link.connected) {
+                    Hub.listenWhenReady = true
+                    return
+                }
+                Hub.listenWhenReady = false
+                hushLocally()
+                if (turnOpen) link.send(Outgoing.stop())
+                ears.listenNow()
+            }
         }
     }
 
@@ -178,6 +188,7 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
                 }
                 if (ears.mode == Ears.Mode.OFF || ears.mode == Ears.Mode.BUSY) listen()
                 else Hub.phase.value = Phase.LISTENING
+                if (Hub.listenStillWanted) onCommand(Command.Listen) else Hub.listenWhenReady = false
             }
             is Incoming.Heard -> Hub.heard.value = m.text
             Incoming.Thinking -> {

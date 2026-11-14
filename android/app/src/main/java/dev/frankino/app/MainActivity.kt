@@ -1,12 +1,14 @@
 package dev.frankino.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,6 +56,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         prefs = Prefs(this)
         // In cucina lo schermo resta acceso finché l'app è davanti.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -74,6 +77,23 @@ class MainActivity : ComponentActivity() {
             }
         }
         askPermissions()
+        handle(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handle(intent)
+    }
+
+    /** Tasto laterale tenuto premuto (Frankino è l'assistente predefinito): si ascolta subito. */
+    private fun handle(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_ASSIST && intent?.action != ACTION_LISTEN) return
+        Hub.listenWhenReady = true
+        Hub.commands.tryEmit(Command.Listen)
+    }
+
+    companion object {
+        const val ACTION_LISTEN = "dev.frankino.app.ASCOLTA"
     }
 
     private fun askPermissions() {

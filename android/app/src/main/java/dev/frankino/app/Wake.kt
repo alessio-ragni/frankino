@@ -27,44 +27,63 @@ object Wake {
         "trieste", "pagato", "lingua", "vinto",
     )
 
+    /** Saluti ammessi davanti al nome: «ehi Franco», «ciao Franchino», «hey Franko». */
+    val GREETINGS = listOf("ehi", "hey", "hei", "ei", "ciao", "hi")
+
     const val UNKNOWN = "[unk]"
 
-    /** Sotto questa sicurezza, nel risultato finale, non è un richiamo. */
-    const val MIN_CONFIDENCE = 0.65
+    /** Sotto questa sicurezza, nel risultato finale, non è un richiamo. Tarata con `tools/prova_parola.py`. */
+    const val MIN_CONFIDENCE = 0.5
 
-    /** Il nome deve stare in testa: «Franco, …», non «…ho visto Franco». */
-    const val MAX_LEADING_TOKENS = 2
+    /** Al massimo due saluti davanti al nome. */
+    const val MAX_GREETINGS = 2
+
+    enum class Verdict { YES, NO, MAYBE }
 
     fun grammar(): String = JsonArray(
-        (NAMES + DECOYS.filter { it !in NAMES } + UNKNOWN).map { JsonPrimitive(it) },
+        (NAMES + GREETINGS + DECOYS.filter { it !in NAMES } + UNKNOWN).map { JsonPrimitive(it) },
     ).toString()
 
     /**
-     * Dal JSON di vosk (parziale o finale) a «mi hanno chiamato» sì/no. Si guardano solo i token
-     * in testa; il resto non si conserva.
+     * Dal JSON di vosk (parziale o finale) a «mi hanno chiamato»: SÌ, NO, o FORSE quando il nome è
+     * l'ultima cosa sentita e non si sa ancora se dopo arriva un'esca («il franco… svizzero»).
+     *
+     * Regola: saltati i saluti, la prima parola dev'essere un nome, e quella dopo non un'esca.
+     * «Ho visto Franco» non sveglia: il nome non è in testa. Il resto non si conserva.
      */
-    fun heard(voskJson: String): Boolean {
+    fun verdict(voskJson: String): Verdict {
         val obj = try {
             Json.parseToJsonElement(voskJson).jsonObject
         } catch (_: Exception) {
-            return false
+            return Verdict.NO
         }
         val result = obj["result"] as? JsonArray
         if (result != null) {
-            val words = result.mapNotNull { it as? JsonObject }
-            return words.take(MAX_LEADING_TOKENS).withIndex().any { (i, w) ->
-                val word = (w["word"] as? JsonPrimitive)?.contentOrNull
-                val conf = (w["conf"] as? JsonPrimitive)?.doubleOrNull ?: 0.0
-                val next = (words.getOrNull(i + 1)?.get("word") as? JsonPrimitive)?.contentOrNull
-                word in NAMES && conf >= MIN_CONFIDENCE && next !in DECOYS
+            val words = result.mapNotNull { it as? JsonObject }.map {
+                ((it["word"] as? JsonPrimitive)?.contentOrNull ?: "") to
+                    ((it["conf"] as? JsonPrimitive)?.doubleOrNull ?: 0.0)
             }
+            return decide(words, final = true)
         }
         val text = (obj["partial"] as? JsonPrimitive)?.contentOrNull
             ?: (obj["text"] as? JsonPrimitive)?.contentOrNull
-            ?: return false
-        val tokens = text.split(' ').filter { it.isNotBlank() }
-        return tokens.take(MAX_LEADING_TOKENS).withIndex().any { (i, t) ->
-            t in NAMES && tokens.getOrNull(i + 1) !in DECOYS
+            ?: return Verdict.NO
+        return decide(text.split(' ').filter { it.isNotBlank() }.map { it to 1.0 }, final = false)
+    }
+
+    private fun decide(words: List<Pair<String, Double>>, final: Boolean): Verdict {
+        var i = 0
+        while (i < words.size && words[i].first in GREETINGS) i++
+        if (i >= words.size || i > MAX_GREETINGS) return Verdict.NO
+        val (word, conf) = words[i]
+        if (word !in NAMES || (final && conf < MIN_CONFIDENCE)) return Verdict.NO
+        val next = words.getOrNull(i + 1)?.first
+        return when {
+            next != null -> if (next in DECOYS) Verdict.NO else Verdict.YES
+            final -> Verdict.YES
+            else -> Verdict.MAYBE
         }
     }
+
+    fun heard(voskJson: String): Boolean = verdict(voskJson) == Verdict.YES
 }

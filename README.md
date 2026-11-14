@@ -59,6 +59,11 @@ Come ascolta:
 - **Se lo richiami mentre parla** si zittisce e ti ascolta. Il pulsante «Parla» fa lo stesso a mano.
 - Lo schermo disegna l'A2UI con il renderer ufficiale per Compose (`androidx.a2ui`, alpha).
 
+## Messa in opera
+
+Server su AWS dentro una rete Tailscale, tablet configurato da adb, tasto laterale al posto di
+Gemini: tutti i passi in [`docs/messa-in-opera.md`](docs/messa-in-opera.md), script in `deploy/aws/`.
+
 ## Le azioni verso fuori
 
 Ogni strumento che non è chiaramente di sola lettura chiede conferma: lo schermo mostra cosa sta
@@ -74,4 +79,5 @@ scambi e i permessi. Tutto in `FRANKINO_DATA`, mai nella repo.
 
 - `server/` — FastAPI + Claude Agent SDK. Protocollo col tablet: [`docs/protocollo.md`](docs/protocollo.md).
 - `android/` — l'app per il tablet (Kotlin + Compose).
-- `tools/` — attrezzi per provare.
+- `deploy/aws/` — la macchina su AWS: creazione, primo avvio, comandi remoti.
+- `tools/` — attrezzi per provare (dal Mac come tablet, parola d'avvio).

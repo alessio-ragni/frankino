@@ -30,6 +30,13 @@ cd server
 .venv/bin/python ../tools/prova_mac.py --token <gettone> [--scrivi]
 ```
 
+Server su AWS (account del proprietario, profilo e regione da ambiente; passi in `docs/messa-in-opera.md`):
+
+```bash
+AWS_PROFILE=<profilo> deploy/aws/remoto.sh aggiorna          # dopo il push: git pull + riavvio
+AWS_PROFILE=<profilo> deploy/aws/remoto.sh 'journalctl -u frankino -n 50 --no-pager'
+```
+
 App Android (Java 17 di Homebrew, SDK in `/opt/homebrew/share/android-commandlinetools`):
 
 ```bash

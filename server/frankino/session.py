@@ -20,7 +20,7 @@ from fastapi import WebSocket
 
 from frankino import a2ui
 from frankino.agent import Agent
-from frankino.audio import INPUT_RATE, to_wav
+from frankino.audio import INPUT_RATE, louder, to_wav
 from frankino.config import Settings
 from frankino.confirm import ACTIONS, Gate, card, read_answer
 from frankino.speech import Speaker, Transcriber
@@ -139,7 +139,7 @@ class Session:
             await self._send({"type": "error", "text": "Trascrizione non configurata sul server."})
             return
         try:
-            text = await self.stt.transcribe(to_wav(pcm, rate))
+            text = await self.stt.transcribe(to_wav(louder(pcm), rate))
         except Exception as bad:  # noqa: BLE001 — si scrive e si dice
             log.exception("trascrizione fallita")
             self.store.set_transcript(rid, None, self.stt.name, repr(bad))

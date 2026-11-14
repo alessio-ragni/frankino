@@ -38,6 +38,8 @@ enum class Phase(val label: String) {
 sealed interface Command {
     data object Talk : Command
     data object Hush : Command
+    /** Dal tasto laterale (assistente): ascolta subito, senza nome. */
+    data object Listen : Command
     data object Reconnect : Command
 }
 
@@ -51,6 +53,19 @@ object Hub {
     val error = MutableStateFlow<String?>(null)
     val earsProgress = MutableStateFlow<Int?>(null)
     val commands = MutableSharedFlow<Command>(extraBufferCapacity = 8)
+
+    /** Chiesto di ascoltare prima che il filo col server fosse pronto: si ascolta appena lo è. */
+    @Volatile var listenWhenReady = false
+        set(value) {
+            field = value
+            listenAskedAt = if (value) System.currentTimeMillis() else 0L
+        }
+
+    @Volatile var listenAskedAt = 0L
+
+    /** Una richiesta d'ascolto vecchia (il server era giù) non deve aprire il microfono dopo. */
+    val listenStillWanted: Boolean
+        get() = listenWhenReady && System.currentTimeMillis() - listenAskedAt < 15_000
 
     /** Quello che si manda al server quando tocchi un componente A2UI. */
     var onAction: (String) -> Unit = {}
