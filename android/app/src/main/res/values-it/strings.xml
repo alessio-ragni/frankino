@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="state_setup">Da configurare</string>
+    <string name="state_connecting">Mi collego…</string>
+    <string name="state_offline">Non raggiungo il server</string>
+    <string name="state_mic_off">Microfono spento</string>
+    <string name="state_mic_off_hint">Tocca il cerchio per una domanda sola</string>
+    <string name="state_idle">Aspetto il nome</string>
+    <string name="state_idle_hint">Dì «Franco» o tocca il cerchio</string>
+    <string name="state_listening">Ti ascolto</string>
+    <string name="state_listening_hint">Tocca quando hai finito</string>
+    <string name="state_follow">Dimmi pure</string>
+    <string name="state_follow_hint">Ascolto ancora qualche secondo, senza nome</string>
+    <string name="state_thinking">Ci penso</string>
+    <string name="state_speaking">Parlo</string>
+    <string name="state_stop_hint">Tocca per fermarmi</string>
+    <string name="state_ringing">Suona</string>
+    <string name="state_ringing_hint">Tocca o dì «stop»</string>
+
+    <string name="mic_on">Microfono acceso</string>
+    <string name="mic_off">Microfono spento</string>
+    <string name="settings">Impostazioni</string>
+    <string name="close_card">Chiudi la scheda</string>
+    <string name="orb_description">Ascolta</string>
+    <string name="no_cards">Ancora niente sullo schermo</string>
+    <string name="no_cards_hint">Chiedi una ricetta, il calendario o la lista della spesa: compare qui, una scheda per argomento.</string>
+    <string name="downloading_wake">Scarico la parola d\'avvio: %1$d%%</string>
+
+    <string name="settings_intro">L\'indirizzo del server è il nome del Mac (o del server) su Tailscale, per esempio «mio-mac:4390». Il gettone è il FRANKINO_TOKEN del file .env del server.</string>
+    <string name="server_address">Indirizzo del server</string>
+    <string name="token">Gettone</string>
+    <string name="save_connect">Salva e collegati</string>
+
+    <string name="error_mic_permission">Senza il permesso del microfono Frankino non ti sente.</string>
+    <string name="error_mic">Il microfono non si apre: controlla il permesso.</string>
+    <string name="error_wake">Non riesco a preparare la parola d\'avvio: tocca il cerchio per parlare.</string>
+    <string name="error_no_ears">Il server non ha la trascrizione: configura la chiave.</string>
+    <string name="error_no_voice">Il server non ha la voce: risponderà solo sullo schermo.</string>
+
+    <string name="channel_name">Ascolto</string>
+    <string name="channel_description">Frankino è in ascolto del suo nome</string>
+    <string name="notif_on">Ti ascolto: chiamami per nome</string>
+    <string name="notif_off">Microfono spento: non ascolto niente</string>
+    <string name="notif_turn_off">Spegni microfono</string>
+    <string name="notif_turn_on">Riaccendi microfono</string>
+    <string name="tile_on">In ascolto</string>
+    <string name="tile_off">Microfono spento</string>
+    <string name="error_bad_address">Indirizzo del server non valido.</string>
+    <string name="error_bad_token">Il server non accetta il gettone: controllalo nelle impostazioni.</string>
+</resources>

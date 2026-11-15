@@ -1,7 +1,7 @@
-"""Il server: un websocket per i dispositivi, due rotte per i permessi, una per sapere se è vivo.
+"""The server: a websocket for devices, two routes for permissions, one to know it is alive.
 
-Va tenuto dietro Tailscale o la rete di casa. Ogni richiesta porta il gettone
-`FRANKINO_TOKEN`: senza, il server rifiuta.
+Keep it behind Tailscale or the home network. Every request carries the token
+`FRANKINO_TOKEN`: without it, the server refuses.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Query, WebSocket
 
 from frankino import speech
 from frankino.agent import Agent
+from frankino.bell import ring_forever
 from frankino.config import Settings
 from frankino.session import AgentFactory, Session
 from frankino.store import Store
@@ -28,8 +29,8 @@ PURGE_EVERY_S = 6 * 3600
 def _try(make, s: Settings, what: str):
     try:
         return make(s)
-    except Exception as bad:  # noqa: BLE001 — il server parte lo stesso, senza quella parte
-        log.warning("%s non disponibile: %s", what, bad)
+    except Exception as bad:  # noqa: BLE001 — the server starts anyway, without that part
+        log.warning("%s not available: %s", what, bad)
         return None
 
 
@@ -39,28 +40,33 @@ def create_app(
     stt: speech.Transcriber | None = None,
     tts: speech.Speaker | None = None,
     agent_factory: AgentFactory = Agent,
+    bell: bool = True,
 ) -> FastAPI:
     s = s or Settings.from_env()
     if not s.token:
-        raise RuntimeError("Manca FRANKINO_TOKEN nel .env: senza gettone il server non parte.")
+        raise RuntimeError("FRANKINO_TOKEN is missing from .env: without a token the server does not start.")
     store = Store(s.db_path, s.audio_dir)
-    stt = stt or _try(speech.transcriber, s, "la trascrizione")
-    tts = tts or _try(speech.speaker, s, "la voce")
+    stt = stt or _try(speech.transcriber, s, "transcription")
+    tts = tts or _try(speech.speaker, s, "voice")
+    sessions: list[Session] = []
 
     async def purge_forever() -> None:
         while True:
             removed = store.purge(s.audio_days)
             if removed:
-                log.info("tolti %d audio più vecchi di %d giorni", removed, s.audio_days)
+                log.info("removed %d audio files older than %d days", removed, s.audio_days)
             await asyncio.sleep(PURGE_EVERY_S)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        task = asyncio.create_task(purge_forever())
+        tasks = [asyncio.create_task(purge_forever())]
+        if bell:
+            tasks.append(asyncio.create_task(ring_forever(store, s.tz, lambda: list(sessions))))
         yield
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+        for task in tasks:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
     app = FastAPI(title="Frankino", lifespan=lifespan)
 
@@ -75,6 +81,7 @@ def create_app(
             "stt": stt.name if stt else None,
             "tts": tts.name if tts else None,
             "a2ui": s.a2ui_version,
+            "devices": len(sessions),
         }
 
     @app.get("/permessi")
@@ -96,7 +103,13 @@ def create_app(
             await ws.close(code=4401)
             return
         await ws.accept()
-        await Session(ws, s, store, stt, tts, device, agent_factory).run()
+        session = Session(ws, s, store, stt, tts, device, agent_factory)
+        sessions.append(session)
+        try:
+            await session.run()
+        finally:
+            sessions.remove(session)
 
     app.state.store = store
+    app.state.sessions = sessions
     return app

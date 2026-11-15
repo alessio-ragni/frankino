@@ -1,9 +1,9 @@
-"""Tutta la configurazione arriva dall'ambiente (o da `.env`). Niente valori cablati."""
+"""All configuration comes from the environment (or `.env`). No hard-coded values."""
 
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -11,6 +11,11 @@ from dotenv import load_dotenv
 
 def _get(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
+
+
+# The household connectors Frankino keeps. Every other MCP server of the host is switched off
+# for Frankino: each one adds tool descriptions to every request, and slows every answer.
+HOME_CONNECTORS = "WhatsApp,Gmail,Google Calendar,Google Drive"
 
 
 @dataclass(frozen=True)
@@ -35,6 +40,10 @@ class Settings:
     audio_days: int
     a2ui_version: str
     confirm_timeout_s: float
+    connectors: tuple[str, ...] = field(default_factory=lambda: tuple(HOME_CONNECTORS.split(",")))
+    lang: str = "it"
+    idle_reset_min: float = 10
+    filler_s: float = 3.0
 
     @classmethod
     def from_env(cls, env_file: str | Path | None = None) -> Settings:
@@ -44,7 +53,7 @@ class Settings:
             host=_get("FRANKINO_HOST", "0.0.0.0"),
             port=int(_get("FRANKINO_PORT", "4390")),
             token=_get("FRANKINO_TOKEN"),
-            # Per la voce conta la prontezza: Haiku con poco ragionamento. Sonnet o Opus cambiando una riga.
+            # For a voice, readiness matters most: Haiku with little effort. Sonnet or Opus by changing a line.
             model=_get("FRANKINO_MODEL", "claude-haiku-5-5"),
             effort=_get("FRANKINO_EFFORT", "low"),
             tz=_get("FRANKINO_TZ", "Europe/Rome"),
@@ -61,6 +70,10 @@ class Settings:
             audio_days=int(_get("FRANKINO_AUDIO_DAYS", "30")),
             a2ui_version=_get("FRANKINO_A2UI_VERSION", "v0.9.1"),
             confirm_timeout_s=float(_get("FRANKINO_CONFIRM_TIMEOUT_S", "120")),
+            connectors=tuple(c.strip() for c in _get("FRANKINO_CONNECTORS", HOME_CONNECTORS).split(",") if c.strip()),
+            lang=_get("FRANKINO_LANG", "it"),
+            idle_reset_min=float(_get("FRANKINO_IDLE_RESET_MIN", "10")),
+            filler_s=float(_get("FRANKINO_FILLER_S", "3")),
         )
 
     @property
@@ -73,5 +86,5 @@ class Settings:
 
     @property
     def work_dir(self) -> Path:
-        """La cartella in cui gira Claude: vuota, sua, lontana dai file di chi lo ospita."""
+        """The folder Claude runs in: empty, its own, away from the host's files."""
         return self.data_dir / "lavoro"

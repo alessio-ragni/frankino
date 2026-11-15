@@ -1,4 +1,4 @@
-"""PCM grezzo dal tablet: 16 bit, mono, little-endian. Qui solo il minimo per farne un WAV."""
+"""Raw PCM from the tablet: 16-bit, mono, little-endian. Only the minimum to make a WAV."""
 
 from __future__ import annotations
 
@@ -9,16 +9,16 @@ from array import array
 
 INPUT_RATE = 16_000
 
-# Parlato da lontano arriva piano: prima di trascriverlo lo si porta a un livello normale.
+# Speech from afar arrives quiet: before transcribing it is brought to a normal level.
 TARGET_PEAK = 16_000
 MAX_GAIN = 8.0
 
 
 def louder(pcm: bytes) -> bytes:
-    """Alza il volume di una registrazione bassa (mai oltre MAX_GAIN, mai fino a saturare).
+    """Raises the volume of a quiet recording (never beyond MAX_GAIN, never to clipping).
 
-    Il riferimento è il campione al 99,9° percentile, non il massimo: un colpo isolato non deve
-    impedire di alzare tutto il resto.
+    The reference is the 99.9th percentile sample, not the maximum: a single bang must not
+    stop everything else from being raised.
     """
     samples = array("h", pcm[: len(pcm) - len(pcm) % 2])
     if sys.byteorder != "little":

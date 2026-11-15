@@ -1,11 +1,12 @@
-"""Prova a vuoto della parola d'avvio sul Mac, con le stesse regole dell'app (Wake.kt + Ears.kt).
+"""Dry run of the wake word on the Mac, with the same rules as the app (Wake.kt + Ears.kt).
 
     python3 -m venv /tmp/vosk && /tmp/vosk/bin/pip install vosk
-    # modello: https://alphacephei.com/vosk/models/vosk-model-small-it-0.22.zip (scompattato)
-    say -v Alice -o prova.wav --data-format=LEI16@16000 "Ciao Franco, che ore sono?"
-    /tmp/vosk/bin/python tools/prova_parola.py <cartella-modello> prova.wav[,altra.wav] [settle_ms] [confidenza]
+    # model: https://alphacephei.com/vosk/models/vosk-model-small-it-0.22.zip (unzipped)
+    say -v Alice -o test.wav --data-format=LEI16@16000 "Ciao Franco, che ore sono?"
+    /tmp/vosk/bin/python tools/prova_parola.py <model-dir> test.wav[,other.wav] [settle_ms] [confidence]
 
-Stampa SVEGLIA (con i millisecondi) o «-» per ogni file. Se cambi le liste qui, cambiale anche in Wake.kt.
+Prints WAKE (with the milliseconds) or «-» for each file. If you change the word lists here, change
+them in Wake.kt too.
 """
 
 import json
@@ -68,7 +69,7 @@ gram = json.dumps(NAMES + GREET + DECOYS + ["[unk]"])
 for path in sys.argv[2].split(","):
     r = KaldiRecognizer(m, 16000, gram)
     r.SetWords(True)
-    wv = wave.open(path)  # noqa: SIM115 — script di prova, si chiude all'uscita
+    wv = wave.open(path)  # noqa: SIM115 — test script, closed on exit
     hit = None
     maybe = 0
     t = 0
@@ -98,15 +99,7 @@ for path in sys.argv[2].split(","):
             break
     if hit is None:
         o = json.loads(r.FinalResult())
-        if (
-            verdict([(x["word"], x["conf"]) for x in o.get("result", [])], True)
-            == "YES"
-        ):
+        if verdict([(x["word"], x["conf"]) for x in o.get("result", [])], True) == "YES":
             hit = t
         last = o.get("text", last)
-    print(
-        (f"SVEGLIA {hit:5d} " if hit else "-             ")
-        + path.rsplit("/", 1)[1]
-        + "   "
-        + last
-    )
+    print((f"WAKE    {hit:5d} " if hit else "-             ") + path.rsplit("/", 1)[1] + "   " + last)

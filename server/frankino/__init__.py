@@ -1,6 +1,8 @@
-"""Frankino: un compagno vocale con schermo.
+"""Frankino: a voice companion with a screen.
 
-Il tablet ascolta, parla e mostra. Questo pacchetto è il resto: trascrive, fa
-pensare Claude (con l'abbonamento e i connettori di chi lo installa), manda la
-voce e lo schermo indietro.
+The tablet listens, speaks and shows. This package is the rest: it transcribes,
+lets Claude think (with the subscription and connectors of whoever installs it),
+and sends the voice and the screen back.
 """
+
+__version__ = "2.0.0"

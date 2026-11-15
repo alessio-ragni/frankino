@@ -1,4 +1,4 @@
-"""`python -m frankino`: accende il server."""
+"""`python -m frankino`: starts the server."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from frankino.config import Settings
 
 
 class HideToken(logging.Filter):
-    """Il gettone viaggia nell'indirizzo del websocket: nei registri non deve comparire."""
+    """The token travels in the websocket address: it must never show in the logs."""
 
     PATTERN = re.compile(r"token=[^&\s\"']+")
 
@@ -29,7 +29,7 @@ def main() -> None:
     for handler in logging.getLogger().handlers:
         handler.addFilter(HideToken())
     s = Settings.from_env()
-    # log_config=None: i registri di uvicorn passano dai nostri, filtro compreso.
+    # log_config=None: uvicorn's logs go through ours, filter included.
     uvicorn.run(create_app(s), host=s.host, port=s.port, ws_max_size=16 * 1024 * 1024, log_config=None)
 
 

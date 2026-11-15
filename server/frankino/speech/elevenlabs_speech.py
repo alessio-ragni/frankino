@@ -1,6 +1,6 @@
-"""ElevenLabs: Scribe per capire, la voce in streaming (PCM a 24 kHz) per parlare.
+"""ElevenLabs: Scribe to understand, the streaming voice (PCM at 24 kHz) to speak.
 
-Si accende con `FRANKINO_STT=elevenlabs` e/o `FRANKINO_TTS=elevenlabs`.
+Switched on with `FRANKINO_STT=elevenlabs` and/or `FRANKINO_TTS=elevenlabs`.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ BASE = "https://api.elevenlabs.io/v1"
 
 def _headers(s: Settings) -> dict[str, str]:
     if not s.elevenlabs_api_key:
-        raise RuntimeError("Manca ELEVENLABS_API_KEY nel .env del server.")
+        raise RuntimeError("ELEVENLABS_API_KEY is missing from the server .env.")
     return {"xi-api-key": s.elevenlabs_api_key}
 
 
@@ -32,7 +32,7 @@ class ElevenLabsTranscriber:
             r = await client.post(
                 f"{BASE}/speech-to-text",
                 headers=self.headers,
-                data={"model_id": self.model},  # lingua riconosciuta da sé
+                data={"model_id": self.model},  # language detected on its own
                 files={"file": ("voce.wav", wav, "audio/wav")},
             )
             r.raise_for_status()
@@ -46,7 +46,7 @@ class ElevenLabsSpeaker:
     def __init__(self, s: Settings) -> None:
         self.headers = _headers(s)
         if not s.elevenlabs_voice_id:
-            raise RuntimeError("Manca FRANKINO_ELEVENLABS_VOICE_ID nel .env del server.")
+            raise RuntimeError("FRANKINO_ELEVENLABS_VOICE_ID is missing from the server .env.")
         self.voice = s.elevenlabs_voice_id
         self.model = s.elevenlabs_tts_model
 

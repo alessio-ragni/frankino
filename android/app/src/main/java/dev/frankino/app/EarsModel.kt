@@ -7,8 +7,8 @@ import java.io.File
 import java.util.zip.ZipInputStream
 
 /**
- * Il modello italiano piccolo di vosk (circa 50 MB) per la parola d'avvio. Non sta nella repo né
- * nell'app: si scarica una volta al primo avvio e resta sul tablet.
+ * vosk's small Italian model (about 50 MB) for the wake word. It is neither in the repo nor in the
+ * app: it is downloaded once at first start and stays on the tablet.
  */
 object EarsModel {
     private const val NAME = "vosk-model-small-it-0.22"
@@ -18,7 +18,7 @@ object EarsModel {
 
     fun ready(context: Context): Boolean = File(dir(context), "conf").isDirectory
 
-    /** Scarica e scompatta. `progress` va da 0 a 100. */
+    /** Downloads and unpacks. `progress` goes from 0 to 100. */
     fun fetch(context: Context, progress: (Int) -> Unit): File {
         val target = dir(context)
         if (ready(context)) return target
@@ -48,7 +48,7 @@ object EarsModel {
         ZipInputStream(zip.inputStream().buffered()).use { zin ->
             while (true) {
                 val entry = zin.nextEntry ?: break
-                // Dentro lo zip tutto sta sotto una cartella col nome del modello: la si toglie.
+                // Inside the zip everything sits under a folder named after the model: it is stripped.
                 val rel = entry.name.substringAfter('/', "")
                 if (rel.isEmpty()) continue
                 val out = File(tmp, rel)

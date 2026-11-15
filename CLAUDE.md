@@ -1,26 +1,47 @@
-# Frankino — guida per Claude
+# Frankino — guide for Claude
 
-Compagno vocale con schermo: tablet Android davanti, server Python dietro, Claude Code (Agent SDK,
-login dell'abbonamento di chi lo ospita) come cervello, A2UI per lo schermo. Si parte semplici e si
-aggiunge a mano a mano: niente architettura in anticipo.
+A voice companion with a screen: an Android tablet in front, a Python server behind, Claude Code
+(Agent SDK, logged in with the subscription of whoever hosts it) as the brain, A2UI for the screen.
+Start simple and add things as they are needed: no architecture ahead of time.
 
-## Regole
+## Rules
 
-- **Repo pubblica.** Mai segreti, audio, trascrizioni, nomi o numeri veri: né nel codice, né nei
-  test, né negli esempi. `.env` e `FRANKINO_DATA` stanno fuori.
-- **Mai `ANTHROPIC_API_KEY`.** Il server usa il login dell'abbonamento; se la chiave c'è, la CLI la
-  preferisce e fattura a consumo.
-- **Frankino non offre login a Claude.ai e non tocca credenziali.** Ognuno fa `/login` da sé.
-- **Le azioni verso fuori passano dal cancello** (`server/frankino/confirm.py`, hook PreToolUse).
-  Prudente per costruzione: chiede tutto tranne ciò che è chiaramente di sola lettura. Non
-  sostituirlo con il `can_use_tool`: con le impostazioni utente in modalità «auto» non viene chiamato.
-- **Voce e trascrizione sono intercambiabili** (`server/frankino/speech/`): un servizio nuovo è un
-  file e una riga nei dizionari, mai un `if` sparso.
-- **Lo schermo parla A2UI** (`server/frankino/a2ui.py`), versione da `FRANKINO_A2UI_VERSION`.
-- Il protocollo col tablet è in `docs/protocollo.md`: se lo cambi, cambi il documento.
-- Nomi nel codice in inglese, testi per le persone in italiano.
+- **Public repo.** Never secrets, audio, transcripts, real names or real numbers: not in the code,
+  not in the tests, not in the examples. `.env` and `FRANKINO_DATA` stay outside the repo.
+- **Never `ANTHROPIC_API_KEY`.** The server uses the subscription login; if the key is set, the CLI
+  prefers it and bills per use.
+- **Frankino offers no Claude.ai login and never touches credentials.** Everyone does `/login`
+  themselves.
+- **Outward actions go through the gate** (`server/frankino/confirm.py`, PreToolUse hook). Cautious
+  by design: it asks about everything except what is clearly read-only. Do not replace it with
+  `can_use_tool`: with user settings in «auto» mode, it is never called.
+- **Voice and transcription are interchangeable** (`server/frankino/speech/`): a new service is one
+  file and one line in the dictionaries, never a scattered `if`.
+- **The screen speaks A2UI** (`server/frankino/a2ui.py`), version from `FRANKINO_A2UI_VERSION`.
+  Everything that reaches the tablet is checked against the renderer's catalog (`validate`): the
+  alpha renderer crashes the whole app on some mistakes (a zero `weight`), so nothing unchecked
+  goes through. Common cards are templates filled with plain data; prefer adding a template to
+  asking Claude for long A2UI.
+- **Frankino's own tools** (`server/frankino/home.py`: alarms, timers, reminders, lists,
+  `report_missing`) never go through the gate. Nothing in the agenda or the lists is deleted: items
+  end with a date and a reason.
+- **Every turn is journaled** (`turns`, `tool_calls`, `events`, `missing_tools` in `store.py`). A
+  new step that can be slow or fail writes its timing or its error there.
+- **Only the household connectors** reach Claude (`FRANKINO_CONNECTORS`, `UNUSED_TOOLS` in
+  `agent.py`): every tool description is sent with every request and costs time.
+- The protocol with the tablet is in `docs/protocol.md`: if you change it, change the document.
+- How Frankino works, for people who do not read code, is in `docs/how-it-works.md`; the setup
+  steps are in `docs/deployment.md`. Keep them in line with what the code does.
 
-## Comandi
+## Language
+
+- **Everything in the repo is written in English**: names in the code, comments, docstrings, docs,
+  changelog, commit messages.
+- **The Android app's on-screen strings** have English defaults in `res/values/strings.xml` and an
+  Italian translation in `res/values-it/strings.xml`. A new string goes in both.
+- **What Frankino says aloud follows the language the person speaks.**
+
+## Commands
 
 ```bash
 cd server
@@ -30,21 +51,43 @@ cd server
 .venv/bin/python ../tools/prova_mac.py --token <gettone> [--scrivi]
 ```
 
-Server su AWS (account del proprietario, profilo e regione da ambiente; passi in `docs/messa-in-opera.md`):
+Server on AWS (the owner's account, profile and region from the environment; steps in
+`docs/deployment.md`):
 
 ```bash
-AWS_PROFILE=<profilo> deploy/aws/remoto.sh aggiorna          # dopo il push: git pull + riavvio
-AWS_PROFILE=<profilo> deploy/aws/remoto.sh 'journalctl -u frankino -n 50 --no-pager'
+AWS_PROFILE=<profile> deploy/aws/remoto.sh aggiorna          # after the push: git pull + restart
+AWS_PROFILE=<profile> deploy/aws/remoto.sh registro 6        # the journal: last 6 hours
+AWS_PROFILE=<profile> deploy/aws/remoto.sh 'journalctl -u frankino -n 50 --no-pager'
 ```
 
-App Android (Java 17 di Homebrew, SDK in `/opt/homebrew/share/android-commandlinetools`):
+Android app (Java 17 from Homebrew, SDK in `/opt/homebrew/share/android-commandlinetools`):
 
 ```bash
 cd android
 JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew assembleDebug testDebugUnitTest lintDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
+# ask a written question from the tablet's own session, then look at the screen
+adb shell am start -a dev.frankino.app.ASCOLTA --es text "'Franco, la carbonara per due'"
+adb exec-out screencap -p > screen.png
 ```
+
+Testing on the real tablet speaks aloud in someone's home and may read their calendar: keep test
+questions few and harmless, and remove anything a test created (an alarm on the Clock app, a list
+item).
+
+## Versions and releases
+
+One version for the whole project: `server/frankino/__init__.py` (`__version__`),
+`server/pyproject.toml`, and `versionName`/`versionCode` in `android/app/build.gradle.kts`
+(`versionCode` = major×10000 + minor×100 + patch). `server/tests/test_version.py` fails when they
+disagree. A release is cut only when asked, with the `release` skill (`.claude/skills/release/`):
+changelog, tests, commit, push, tag `vX.Y.Z`, GitHub release with the APK, server update, install on
+the tablet.
 
 ## Changelog
 
-`docs/00_CHANGELOG.md`, in italiano per chi non legge codice, a ogni commit.
+`CHANGELOG.md` at the repo root, updated at every commit (the `changelog` skill says how). Format:
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html). New entries go under `## [Unreleased]`
+until a version is cut. Written in English for a reader who does not read code: say what changes
+for the person using Frankino, not which functions changed.

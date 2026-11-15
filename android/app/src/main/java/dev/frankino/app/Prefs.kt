@@ -2,7 +2,7 @@ package dev.frankino.app
 
 import android.content.Context
 
-/** Indirizzo del server e gettone: li scrivi tu sul tablet, non stanno nel codice. */
+/** Server address and token: typed on the tablet, never in the code. */
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("frankino", Context.MODE_PRIVATE)
 
@@ -14,7 +14,7 @@ class Prefs(context: Context) {
         get() = sp.getString("token", "").orEmpty()
         set(value) = sp.edit().putString("token", value.trim()).apply()
 
-    /** L'interruttore del microfono: resta com'è anche dopo un riavvio. */
+    /** The microphone switch: it stays as it is across restarts. */
     var micOn: Boolean
         get() = sp.getBoolean("mic", true)
         set(value) = sp.edit().putBoolean("mic", value).apply()

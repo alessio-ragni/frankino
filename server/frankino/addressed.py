@@ -1,11 +1,14 @@
-"""Parlavano davvero a Frankino? Il secondo controllo, sulla trascrizione vera.
+"""Were they really talking to Frankino? The second check, on the real transcript.
 
-Il tablet si sveglia con un riconoscitore piccolo, che ogni tanto «sente» il nome in mezzo
-a un discorso qualunque. Qui si guarda il testo trascritto: se non comincia col nome
-(dopo al più due saluti), nessuno lo stava chiamando e la registrazione si butta.
+The tablet wakes up with a small recognizer that now and then "hears" the name in
+the middle of any conversation. Here the transcribed text is checked: if it does
+not start with the name (after at most two greetings), nobody was calling him and
+the recording is thrown away.
 
-Dopo una risposta il tablet ascolta qualche secondo senza nome: lì l'unico controllo
-possibile è che non sia l'eco della sua stessa voce.
+Right after an answer the tablet listens a few seconds without the name: there the
+only possible check is that it is not the echo of his own voice.
+
+`stopped()` recognizes "stop", "basta", "grazie" and the like: the conversation is over.
 """
 
 from __future__ import annotations
@@ -16,7 +19,7 @@ from difflib import SequenceMatcher
 
 NAMES = ("franco", "franko", "franchino", "frankino")
 
-# Saluti e intercalari che si dicono prima del nome: «ehi Franco», «senti Franco», «no, Franco».
+# Greetings and fillers said before the name: «ehi Franco», «senti Franco», «no, Franco».
 GREETINGS = frozenset(
     {
         "ehi",
@@ -41,7 +44,7 @@ GREETINGS = frozenset(
     }
 )
 
-# Parole vere che somigliano al nome: non sono un richiamo.
+# Real words that look like the name: they are not a call.
 NOT_NAMES = frozenset(
     {
         "franca",
@@ -74,7 +77,7 @@ MAX_GREETINGS = 2
 
 
 def words(text: str) -> list[str]:
-    """Parole in minuscolo, senza accenti né punteggiatura."""
+    """Lowercase words, without accents or punctuation."""
     plain = unicodedata.normalize("NFKD", text.lower())
     plain = "".join(c for c in plain if not unicodedata.combining(c))
     return re.findall(r"[a-z]+", plain)
@@ -95,14 +98,14 @@ def is_name(word: str) -> bool:
         return False
     if word in NAMES:
         return True
-    # «Fraco», «Frank», «Franchina»: storpiature del trascrittore. Due lettere di scarto solo se
-    # comincia come il nome, altrimenti «fanno» o «banco» passerebbero.
+    # «Fraco», «Frank», «Franchina»: the transcriber's misspellings. Two letters off only if it
+    # starts like the name, otherwise «fanno» or «banco» would pass.
     limit = 2 if word.startswith("fr") else 1
     return any(_distance(word, name) <= limit for name in NAMES)
 
 
 def called(text: str) -> bool:
-    """Vero se la frase comincia col nome, al più dopo due saluti («ehi Franco», «ciao Franchino»)."""
+    """True if the sentence starts with the name, after at most two greetings («ehi Franco», «ciao Franchino»)."""
     ws = words(text)
     i = 0
     while i < len(ws) and i < MAX_GREETINGS and ws[i] in GREETINGS and not is_name(ws[i]):
@@ -111,7 +114,7 @@ def called(text: str) -> bool:
 
 
 def echo(text: str, said: str) -> bool:
-    """Vero se `text` è quasi la stessa cosa che Frankino ha appena detto (il microfono ha sentito lui)."""
+    """True if `text` is nearly what Frankino just said (the microphone heard him)."""
     heard = " ".join(words(text))
     spoken = " ".join(words(said))
     if not heard or not spoken:
@@ -125,5 +128,59 @@ SILENT = "…"
 
 
 def silent(answer: str) -> bool:
-    """La risposta convenuta per «non parlavano a me»: solo puntini."""
+    """The agreed answer for "they were not talking to me": only dots."""
     return bool(answer.strip()) and not answer.strip().strip(".…").strip()
+
+
+# «Basta», «stop», «grazie»: the conversation is over, back to waiting for the name.
+_STOP_STRONG = frozenset(
+    {"stop", "basta", "zitto", "zitta", "fermati", "ferma", "silenzio", "grazie", "thanks", "enough", "quiet", "finito"}
+)
+_STOP_SOFT = frozenset(
+    {
+        "ok",
+        "okay",
+        "va",
+        "bene",
+        "cosi",
+        "per",
+        "ora",
+        "adesso",
+        "ho",
+        "e",
+        "tutto",
+        "mille",
+        "thank",
+        "you",
+        "be",
+        "shut",
+        "up",
+        "that",
+        "s",
+        "all",
+        "lascia",
+        "stare",
+        "niente",
+        "altro",
+        "a",
+        "posto",
+        "apposto",
+        "sono",
+        "sto",
+        "never",
+        "mind",
+        "please",
+    }
+)
+_STOP_PHRASES = ("lascia stare", "never mind", "niente niente")
+
+
+def stopped(text: str) -> bool:
+    """True if the whole sentence only says "stop" ("basta", "grazie, ok", "Franco stop")."""
+    ws = [w for w in words(text) if not is_name(w)]
+    if not ws or len(ws) > 6:
+        return False
+    joined = " ".join(ws)
+    if not set(ws) <= _STOP_STRONG | _STOP_SOFT | GREETINGS:
+        return False
+    return bool(set(ws) & _STOP_STRONG) or any(p in joined for p in _STOP_PHRASES)
