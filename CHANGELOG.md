@@ -6,6 +6,33 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A gallery of every kind of card the tablet can draw**: text styles, icons and buttons, a recipe
+  with a photo, tabs, a row that scrolls sideways, a form with a text box, choices, date and slider,
+  and a pop-up window. It runs on the tablet alone, to see what the screen can do before asking
+  for it.
+- **«Basta», «stop», «zitto» on their own stop Frankino at once** while it speaks, thinks or rings,
+  without saying its name and without any answer.
+
+### Changed
+
+- **The conversation stays open longer.** After an answer it keeps listening without the name for
+  20 seconds instead of 5, and after something that was not for it, it keeps listening instead of
+  closing. It also waits for a longer pause (1.2 seconds) before deciding you have finished.
+- **The thinking sound is rarer and softer**: one note every few seconds instead of two notes every
+  second.
+- **Cards follow the tablet's colours and use larger text**, easier to read from across the room.
+
+### Fixed
+
+- **It no longer gets stuck on «thinking».** When the server decided a sentence was not for
+  Frankino, the tablet stayed on the thinking circle for good. And if no answer comes within 45
+  seconds, it now gives up and goes back to listening.
+- **A question asked right when the conversation was starting afresh** waits for it instead of
+  failing.
+- **Pictures from sites that refuse anonymous requests now load**, Wikimedia for one.
+
 ## [2.0.0] - 2026-11-15
 
 Frankino now shows what it is doing and has one button, keeps each topic on its own card that

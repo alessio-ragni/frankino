@@ -34,6 +34,8 @@ class Ears(private val listener: Listener) {
         /** The name heard while Frankino speaks or thinks. */
         fun onBargeIn()
         fun onFollowUpExpired()
+        /** «Basta», «stop» heard while he talks, thinks or rings. */
+        fun onStopWord()
     }
 
     enum class Mode { OFF, WAKE, FOLLOW, RECORDING, BUSY }
@@ -66,6 +68,7 @@ class Ears(private val listener: Listener) {
     private var maybeMs = 0
     private var deafMs = 0
     private var why = Why.NAME
+    private var stopHeard = false
 
     val hasWakeWord: Boolean get() = recognizer != null
 
@@ -178,12 +181,15 @@ class Ears(private val listener: Listener) {
             Mode.WAKE -> {
                 remember(chunk)
                 if (wake(chunk)) begin(Why.NAME)
+                else if (stopHeard) listener.onStopWord()
             }
             Mode.BUSY -> {
                 remember(chunk)
                 if (wake(chunk)) {
                     listener.onBargeIn()
                     begin(Why.BARGE)
+                } else if (stopHeard) {
+                    listener.onStopWord()
                 }
             }
             Mode.FOLLOW -> {
@@ -249,9 +255,16 @@ class Ears(private val listener: Listener) {
      * call, if nothing came after [SETTLE_MS] it was.
      */
     private fun wake(chunk: ByteArray): Boolean {
+        stopHeard = false
         val r = recognizer ?: return false
         val final = r.acceptWaveForm(chunk, chunk.size)
-        var verdict = Wake.verdict(if (final) r.result else r.partialResult)
+        val json = if (final) r.result else r.partialResult
+        if (final && Wake.stop(json)) {
+            Log.i(TAG, "stop word")
+            stopHeard = true
+            return false
+        }
+        var verdict = Wake.verdict(json)
         if (verdict == Wake.Verdict.MAYBE) {
             maybeMs += CHUNK_MS
             if (maybeMs >= SETTLE_MS) verdict = Wake.Verdict.YES
@@ -280,12 +293,13 @@ class Ears(private val listener: Listener) {
         const val LEAD_MS = 3000
         const val SETTLE_MS = 700
         const val TAIL_MS = 400
-        // After an answer it listens briefly and only to a real voice: household chatter must not
-        // start a turn on its own. The server then drops the echo and what was not for Frankino.
-        const val FOLLOW_MS = 5000
+        // After an answer the conversation stays open: it keeps listening without the name until you
+        // say «stop» or stay quiet this long. Only a real voice starts a turn, and the server drops
+        // the echo and what was not for Frankino.
+        const val FOLLOW_MS = 20_000
         const val FOLLOW_TRIGGER_MS = 400
-        // How long a pause means "I'm done". Shorter answers sooner; too short cuts you off.
-        const val END_SILENCE_MS = 800
+        // How long a pause means "I'm done". Shorter answers sooner; too short cuts you off mid-thought.
+        const val END_SILENCE_MS = 1200
         const val MAX_BARGE_MS = 6000
         const val NOTHING_SAID_MS = 5000
         const val MAX_RECORDING_MS = 5 * 60 * 1000

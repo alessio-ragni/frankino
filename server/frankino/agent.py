@@ -95,6 +95,8 @@ class Agent:
         self.kept: list[str] = []
         self.dropped: list[str] = []
         self._trimming: asyncio.Task | None = None
+        # A question never meets a brain halfway through a restart: both take this in turn.
+        self._busy = asyncio.Lock()
 
     async def _pre(self, data: dict[str, Any], tool_use_id: str | None, context: Any):
         out = await self.gate.pre_tool_use(data, tool_use_id, context)
@@ -216,8 +218,9 @@ class Agent:
             self.client = None
 
     async def restart(self) -> None:
-        await self.stop()
-        await self.start()
+        async with self._busy:
+            await self.stop()
+            await self.start()
 
     async def interrupt(self) -> None:
         if self.client is not None:
@@ -225,6 +228,10 @@ class Agent:
 
     async def ask(self, text: str, on_text: Callable[[str], None]) -> str:
         """Sends the sentence to Claude and passes the pieces of the answer to `on_text` as they come."""
+        async with self._busy:
+            return await self._ask(text, on_text)
+
+    async def _ask(self, text: str, on_text: Callable[[str], None]) -> str:
         from claude_agent_sdk import AssistantMessage, ResultMessage, StreamEvent, TextBlock
 
         assert self.client is not None, "start() before ask()"

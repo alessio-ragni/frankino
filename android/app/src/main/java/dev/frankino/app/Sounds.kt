@@ -19,10 +19,11 @@ class Sounds {
     /** A short high note: "I heard you". */
     fun chime() = once(tone(880.0, 110, 0.18) + tone(1320.0, 90, 0.12))
 
-    /** A soft two-note pulse, every second or so, until [stopThinking]. */
+    /** A single soft note every few seconds, until [stopThinking]. */
     fun startThinking() {
         if (thinking != null) return
-        val pulse = tone(523.0, 70, 0.07) + silence(60) + tone(659.0, 90, 0.06) + silence(950)
+        // One soft note every few seconds: often enough to say «still on it», rarely enough not to nag.
+        val pulse = tone(587.0, 90, 0.05) + silence(3600)
         thinking = loop(pulse, maxMs = 60_000) { thinking = null }
     }
 

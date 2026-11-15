@@ -30,7 +30,13 @@ object Wake {
     /** Greetings allowed before the name: «ehi Franco», «ciao Franchino», «hey Franko». */
     val GREETINGS = listOf("ehi", "hey", "hei", "ei", "ciao", "hi")
 
+    /** Said on their own, while Frankino talks or rings, they stop him at once: no answer follows. */
+    val STOPS = listOf("basta", "stop", "zitto", "zitta", "fermati", "silenzio")
+
     const val UNKNOWN = "[unk]"
+
+    /** A stop word needs this confidence, so his own voice does not stop him. */
+    const val STOP_CONFIDENCE = 0.6
 
     /** Below this confidence, in the final result, it is not a call. Tuned with `tools/prova_parola.py`. */
     const val MIN_CONFIDENCE = 0.5
@@ -41,7 +47,7 @@ object Wake {
     enum class Verdict { YES, NO, MAYBE }
 
     fun grammar(): String = JsonArray(
-        (NAMES + GREETINGS + DECOYS.filter { it !in NAMES } + UNKNOWN).map { JsonPrimitive(it) },
+        (NAMES + GREETINGS + STOPS + DECOYS.filter { it !in NAMES } + UNKNOWN).map { JsonPrimitive(it) },
     ).toString()
 
     /**
@@ -86,4 +92,24 @@ object Wake {
     }
 
     fun heard(voskJson: String): Boolean = verdict(voskJson) == Verdict.YES
+
+    /**
+     * «Basta», «stop», «Franco, basta»: the whole thing heard is a stop word (after the name or a
+     * greeting at most). Only final results count, with enough confidence: a word inside one of his
+     * own sentences must not stop him.
+     */
+    fun stop(voskJson: String): Boolean {
+        val obj = try {
+            Json.parseToJsonElement(voskJson).jsonObject
+        } catch (_: Exception) {
+            return false
+        }
+        val result = obj["result"] as? JsonArray ?: return false
+        val words = result.mapNotNull { it as? JsonObject }.map {
+            ((it["word"] as? JsonPrimitive)?.contentOrNull ?: "") to
+                ((it["conf"] as? JsonPrimitive)?.doubleOrNull ?: 0.0)
+        }.filter { it.first != UNKNOWN }
+        val rest = words.dropWhile { it.first in GREETINGS || it.first in NAMES }
+        return rest.size == 1 && rest[0].first in STOPS && rest[0].second >= STOP_CONFIDENCE
+    }
 }

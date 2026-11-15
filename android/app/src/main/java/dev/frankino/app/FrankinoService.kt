@@ -41,6 +41,7 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
     // The name heard over his own voice: turned down, waiting for the server's verdict.
     @Volatile private var barging = false
     @Volatile private var ringId = 0
+    @Volatile private var thinkingSince = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -152,6 +153,16 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
                 deleteSurface(command.id)
             }
             is Command.Front -> link.send(Outgoing.front(command.id))
+            Command.Gallery -> Hub.scope.launch(Dispatchers.Main) {
+                Gallery.cards.forEach { (card, messages) ->
+                    Hub.putCard(card)
+                    messages.forEach { raw ->
+                        runCatching { Hub.show(this@FrankinoService, ScreenMessage(raw, null, card.id)) }
+                            .onFailure { Log.w(TAG, "gallery: ${card.id} not drawn", it) }
+                    }
+                }
+                Hub.focus.tryEmit(Gallery.cards.first().first.id)
+            }
         }
     }
 
@@ -245,6 +256,18 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
                 if (!sounds.ringingNow && !voice.busy) listen()
                 continue
             }
+            // Never stuck on «thinking»: with no word from the server for this long, it gives up.
+            if (Hub.phase.value == Phase.THINKING) {
+                if (thinkingSince == 0L) thinkingSince = System.currentTimeMillis()
+                if (System.currentTimeMillis() - thinkingSince > STUCK_MS && !voice.busy) {
+                    Log.w(TAG, "no answer for ${STUCK_MS / 1000} s: back to listening")
+                    stopAll()
+                    link.send(Outgoing.stop())
+                    listen()
+                }
+            } else {
+                thinkingSince = 0L
+            }
             val m = ears.mode
             if (m != Ears.Mode.BUSY || voice.busy) continue
             val stale = System.currentTimeMillis() - endedAt > NO_ANSWER_MS
@@ -304,6 +327,7 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
                 if (ears.mode != Ears.Mode.RECORDING) ears.set(Ears.Mode.BUSY)
             }
             is Incoming.Say -> {
+                thinkingSince = 0L
                 sounds.stopThinking()
                 voice.rate(m.rate)
                 Hub.said.value = m.text
@@ -369,13 +393,12 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
                         return
                     }
                 }
-                // Not for Frankino, or «stop»: no follow-up, back to waiting for the name.
-                if (m.reason == "stop") {
-                    voice.hush()
-                    turnOpen = false
-                }
+                // Not for Frankino, or «stop»: no answer is coming. The turn the server opened for it
+                // is over too (leaving it open kept the circle on «thinking» for good).
+                voice.hush()
+                turnOpen = false
                 Hub.heard.value = ""
-                if (!turnOpen) listen()
+                if (m.reason == "stop") listen() else if (m.reason == "non per me" && prefs.micOn) followUp() else listen()
             }
             is Incoming.Failure -> Hub.error.value = m.text
             is Incoming.Unknown -> Unit
@@ -429,6 +452,21 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
         listen()
     }
 
+    /** «Basta» while he talks, thinks or rings: quiet at once, and no answer to it. */
+    override fun onStopWord() {
+        Hub.scope.launch {
+            when (Hub.phase.value) {
+                Phase.RINGING -> stopRinging()
+                Phase.THINKING, Phase.SPEAKING -> {
+                    stopAll()
+                    link.send(Outgoing.stop())
+                    listen()
+                }
+                else -> Unit
+            }
+        }
+    }
+
     private fun notification(): Notification {
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
@@ -462,6 +500,7 @@ class FrankinoService : Service(), Link.Listener, Ears.Listener {
         private const val NOTIFICATION_ID = 1
         private const val CONFIRM_LISTEN_MS = 60_000
         private const val NO_ANSWER_MS = 20_000L
+        private const val STUCK_MS = 45_000L
         const val ACTION_MIC = "dev.frankino.app.MICROFONO"
         const val EXTRA_ON = "acceso"
 

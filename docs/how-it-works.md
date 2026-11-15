@@ -13,12 +13,14 @@ The circle in the middle of the screen shows what Frankino is doing, and it is t
 | Grey circle, red ring, crossed-out microphone | **Off**: the microphone is really closed | listens to one question, then closes again |
 | Quiet circle that slowly breathes, with a play sign | **Waiting for its name** | listens right away, without the name |
 | Blue, pulsing with your voice | **Listening** | you are done, it answers |
-| Four coloured dots turning, with a soft two-note sound | **Thinking** | stops everything |
+| Four coloured dots turning, with a soft note every few seconds | **Thinking** | stops everything |
 | Green, with moving bars | **Speaking** | stops everything |
 | Amber | **Ringing** (a timer or a reminder) | stops the bell |
 
-After an answer it keeps listening a few seconds without the name, so you can carry on; then it
-goes back to waiting for its name. Saying «stop», «basta» or «grazie» ends the conversation at once.
+After an answer the conversation stays open: it keeps listening without the name for 20 seconds
+after each answer, so you can carry on; then it goes back to waiting for its name. «Basta», «stop»
+or «zitto» stop it at once, even while it is speaking, and get no answer; «grazie» at the end of a
+conversation closes it too. If an answer never comes, after 45 seconds it goes back to listening.
 
 The microphone switch is the small chip at the top left, the action in Frankino's notification, and
 the «Frankino» tile in quick settings (the panel that slides down from the top). It stays as it is
@@ -57,6 +59,13 @@ server and come back after a restart.
 
 To try: «Franco, fammi vedere la carbonara per due» (carbonara for two), then «prossimo passo»
 (next step); «Franco, cosa ho in calendario domani?» (what's on tomorrow).
+
+Everything the renderer can draw (text styles, icons, buttons, photos, tabs, a row that scrolls
+sideways, forms with text boxes, choices, dates and sliders, pop-up windows) is in a gallery that
+runs on the tablet alone: `adb shell am start -a dev.frankino.app.ASCOLTA --es demo gallery`. The
+cards take the tablet's colours and fonts from the app's theme; a component of our own (a recipe
+step with a timer, an event with a map) can be added to the catalog when the basic ones are not
+enough.
 
 ## Alarms, timers, reminders, lists
 

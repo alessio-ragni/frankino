@@ -10,7 +10,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,8 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,7 +46,7 @@ class MainActivity : ComponentActivity() {
         // In the kitchen the screen stays on while the app is in front.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContent {
-            MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
+            FrankinoTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var editing by remember { mutableStateOf(!prefs.ready) }
                     if (editing) {
@@ -90,6 +87,10 @@ class MainActivity : ComponentActivity() {
      */
     private fun handle(intent: Intent?) {
         if (intent?.action != Intent.ACTION_ASSIST && intent?.action != ACTION_LISTEN) return
+        if (intent.getStringExtra(EXTRA_DEMO) == "gallery") {
+            Hub.commands.tryEmit(Command.Gallery)
+            return
+        }
         val text = intent.getStringExtra(EXTRA_TEXT)
         if (!text.isNullOrBlank()) {
             Hub.commands.tryEmit(Command.Ask(text))
@@ -102,6 +103,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val ACTION_LISTEN = "dev.frankino.app.ASCOLTA"
         const val EXTRA_TEXT = "text"
+        const val EXTRA_DEMO = "demo"
     }
 
     private fun askPermissions() {

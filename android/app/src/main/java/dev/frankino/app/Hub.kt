@@ -15,7 +15,10 @@ import androidx.compose.material3.a2ui.catalog.A2uiVideoRenderer
 import androidx.compose.material3.a2ui.catalog.MaterialA2uiBasicCatalogV1Defaults
 import androidx.compose.material3.a2ui.catalog.materialA2uiBasicCatalogV1
 import androidx.compose.ui.unit.dp
+import coil3.ImageLoader
 import coil3.compose.AsyncImage
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import okhttp3.OkHttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -54,10 +57,14 @@ sealed interface Command {
     data class Mic(val on: Boolean) : Command
     data class CloseCard(val id: String) : Command
     data class Front(val id: String) : Command
+    /** Show the A2UI gallery: every kind of card the renderer can draw, tablet only. */
+    data object Gallery : Command
 }
 
 /** The state shared between the service that listens and the screen that shows. */
 object Hub {
+    private const val USER_AGENT = "Frankino/2.0 (https://github.com/alessio-ragni/frankino)"
+
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val phase = MutableStateFlow(Phase.CONNECTING)
@@ -110,7 +117,28 @@ object Hub {
         cards.value = cards.value.filterNot { it.id == id }
     }
 
+    /**
+     * Pictures in cards come from anywhere on the web. Some sites (Wikimedia, for one) refuse a
+     * request that does not say who is asking: every picture is fetched saying it is Frankino.
+     */
+    @Volatile private var images: ImageLoader? = null
+
     private fun build(context: Context): A2uiMessageProcessor {
+        images = ImageLoader.Builder(context)
+            .components {
+                add(
+                    OkHttpNetworkFetcherFactory(
+                        callFactory = {
+                            OkHttpClient.Builder()
+                                .addInterceptor { chain ->
+                                    chain.proceed(chain.request().newBuilder().header("User-Agent", USER_AGENT).build())
+                                }
+                                .build()
+                        },
+                    ),
+                )
+            }
+            .build()
         val catalog = materialA2uiBasicCatalogV1(
             image = MaterialA2uiBasicCatalogV1Defaults.image(imageRenderer),
             video = MaterialA2uiBasicCatalogV1Defaults.video(videoRenderer),
@@ -136,6 +164,7 @@ object Hub {
     private val imageRenderer = A2uiImageRenderer { url, description, scale, modifier, onError ->
         AsyncImage(
             model = url,
+            imageLoader = images ?: coil3.SingletonImageLoader.get(androidx.compose.ui.platform.LocalContext.current),
             contentDescription = description,
             contentScale = scale,
             modifier = modifier,
