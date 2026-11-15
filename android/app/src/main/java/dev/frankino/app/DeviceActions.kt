@@ -7,7 +7,7 @@ import android.util.Log
 
 /**
  * What the server can ask the tablet to do on the device itself. For now: alarms on the Clock app,
- * so they ring even when Frankino or the server are down.
+ * so they ring even when Frankino or the server are down, and opening the Clock app's list.
  *
  * Android only lets an app open another app's screen while it is in front. When Frankino's screen
  * is not showing the request is refused, and Claude says so instead of pretending.
@@ -31,11 +31,8 @@ object DeviceActions {
                 if (m.days.isNotEmpty()) putExtra(AlarmClock.EXTRA_DAYS, ArrayList(m.days.map(::calendarDay)))
                 putExtra(AlarmClock.EXTRA_SKIP_UI, true)
             }
-            "dismiss_alarm" -> Intent(AlarmClock.ACTION_DISMISS_ALARM).apply {
-                putExtra(AlarmClock.EXTRA_ALARM_SEARCH_MODE, AlarmClock.ALARM_SEARCH_MODE_LABEL)
-                putExtra(AlarmClock.EXTRA_MESSAGE, m.label)
-                putExtra(AlarmClock.EXTRA_SKIP_UI, true)
-            }
+            // Android lets no app delete another app's alarm: the Clock app's list opens instead.
+            "show_alarms" -> Intent(AlarmClock.ACTION_SHOW_ALARMS)
             else -> return false
         }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (intent.resolveActivity(context.packageManager) == null) {

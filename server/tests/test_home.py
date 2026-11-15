@@ -60,9 +60,23 @@ async def test_alarm_goes_to_the_clock_and_the_agenda(settings):
     assert not out.get("is_error")
     assert host.actions[0] == {"action": "set_alarm", "hour": 7, "minute": 15, "days": [1, 5], "label": "Scuola"}
     item = store.agenda_live()[0]
-    assert item["kind"] == "alarm" and item["repeat_days"] == "1,5"
+    assert item["kind"] == "alarm" and item["repeat_days"] == "1,5" and item["on_device"] == 1
     out = await t["cancel"]({"id": item["id"]})
-    assert host.actions[-1]["action"] == "dismiss_alarm" and store.agenda_live() == []
+    # Android cannot delete another app's alarm: the Clock app is opened for the person.
+    assert host.actions[-1] == {"action": "show_alarms"} and "Clock app" in out["content"][0]["text"]
+    assert store.agenda_live() == []
+
+
+async def test_alarm_too_far_ahead_is_rung_by_frankino(settings):
+    host = FakeHost()
+    store, t = _tools(settings, host)
+    out = await t["set_alarm"]({"time": "2099-01-01 07:00"})
+    assert "Frankino rings it" in out["content"][0]["text"] and host.actions == []
+    item = store.agenda_live()[0]
+    assert item["on_device"] == 0
+    store.agenda_move(item["id"], "2000-01-01 00:00:00")
+    await ring_due(store, "Europe/Rome", lambda: [host], {})
+    assert host.rung[0][0] == "alarm"
 
 
 async def test_alarm_refused_by_the_tablet_is_not_written(settings):
@@ -100,7 +114,7 @@ async def test_without_a_tablet_it_waits(settings):
 
 async def test_repeating_alarm_moves_to_its_next_day(settings):
     store = Store(settings.db_path, settings.audio_dir)
-    rid = store.agenda_add("alarm", "2000-01-03 07:00:00", "x", "1")  # a Monday
+    rid = store.agenda_add("alarm", "2000-01-03 07:00:00", "x", "1", on_device=True)  # a Monday
     await ring_due(store, "Europe/Rome", lambda: [], {})
     assert store.agenda_get(rid)["due_at"] == datetime(2000, 1, 10, 7, 0).strftime(FMT)
 

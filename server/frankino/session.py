@@ -697,7 +697,7 @@ class Session:
         w = self.words
         rows = []
         for r in home.agenda_rows(self.store, now):
-            where = w["clock"] if r["kind"] == "alarm" else "Frankino"
+            where = w["clock"] if r.get("on_device") else "Frankino"
             rows.append(
                 [r["spoken"], " ".join(x for x in (w["kinds"].get(r["kind"], r["kind"]), r["label"]) if x), where]
             )
@@ -714,7 +714,7 @@ class Session:
     async def ring(self, item: dict[str, Any], late_min: int) -> None:
         w = self.words
         await self._send({"type": "ring", "id": item["id"], "kind": item["kind"], "label": item["label"]})
-        head = w["timer"] if item["kind"] == "timer" else w["reminder"]
+        head = {"timer": w["timer"], "alarm": w["kinds"]["alarm"]}.get(item["kind"], w["reminder"])
         text = f"{head}: {item['label']}." if item["label"] else f"{head}."
         if late_min > 0:
             text += " (" + w["late"].format(n=late_min) + ")"

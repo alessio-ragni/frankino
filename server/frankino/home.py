@@ -49,6 +49,12 @@ def parse_when(text: str, now: datetime) -> datetime:
     raise ValueError(f"time {text!r}: use 'YYYY-MM-DD HH:MM' or 'HH:MM'")
 
 
+def next_at(hour: int, minute: int, now: datetime) -> datetime:
+    """The next time the clock shows hour:minute, which is when the Clock app would ring."""
+    at = now.replace(hour=hour, minute=minute, second=0)
+    return at if at > now else at + timedelta(days=1)
+
+
 def spoken_when(when: datetime, now: datetime) -> str:
     days = (when.date() - now.date()).days
     hour = f"{when:%H:%M}"
@@ -101,7 +107,8 @@ def tools(store: Store, host: Host, tz: str) -> list:
 
     @tool(
         "set_alarm",
-        "Set a wake-up alarm on the tablet's Clock app (it rings even if Frankino is off). "
+        "Set a wake-up alarm. If it is the next time that hour comes round (or it repeats on weekdays) it goes "
+        "on the tablet's Clock app, which rings even if Frankino is off; further ahead, Frankino rings it himself. "
         "time: 'YYYY-MM-DD HH:MM' or 'HH:MM'. repeat: optional weekdays like ['mon','tue'].",
         {
             "type": "object",
@@ -119,16 +126,23 @@ def tools(store: Store, host: Host, tz: str) -> list:
             when = parse_when(args.get("time", ""), now)
         except ValueError as bad:
             return _err(str(bad))
+        if when <= now:
+            return _err("That time has already passed.")
         days = [DAYS[d[:3].lower()] for d in args.get("repeat") or [] if d[:3].lower() in DAYS]
         label = str(args.get("label") or "Sveglia")
-        ok = await host.device_action(
-            {"action": "set_alarm", "hour": when.hour, "minute": when.minute, "days": days, "label": label}
-        )
-        if not ok:
-            return _err("The tablet could not set the alarm (app not in front, or no Clock app). Say so.")
-        store.agenda_add("alarm", when.strftime(FMT), label, ",".join(map(str, days)) or None)
+        # The Clock app only takes an hour and a minute: it rings the next time they come round.
+        if days or when == next_at(when.hour, when.minute, now):
+            ok = await host.device_action(
+                {"action": "set_alarm", "hour": when.hour, "minute": when.minute, "days": days, "label": label}
+            )
+            if not ok:
+                return _err("The tablet could not set the alarm (Frankino not in front, or no Clock app). Say so.")
+            store.agenda_add("alarm", when.strftime(FMT), label, ",".join(map(str, days)) or None, on_device=True)
+            await host.agenda_changed()
+            return _ok(f"Alarm set in the tablet's Clock app for {spoken_when(when, now)}.")
+        store.agenda_add("alarm", when.strftime(FMT), label)
         await host.agenda_changed()
-        return _ok(f"Alarm set in the Clock app for {spoken_when(when, now)}.")
+        return _ok(f"Alarm for {spoken_when(when, now)}: Frankino rings it (too far ahead for the Clock app).")
 
     @tool(
         "set_timer",
@@ -195,13 +209,14 @@ def tools(store: Store, host: Host, tz: str) -> list:
             return _err("No live item with that id. Call agenda first.")
         store.agenda_end(item["id"], "cancelled")
         note = ""
-        if item["kind"] == "alarm":
-            due = datetime.strptime(item["due_at"], FMT)
-            ok = await host.device_action(
-                {"action": "dismiss_alarm", "hour": due.hour, "minute": due.minute, "label": item["label"]}
+        if item["kind"] == "alarm" and item.get("on_device"):
+            # Android cannot delete another app's alarm: the Clock app opens and the person removes it.
+            opened = await host.device_action({"action": "show_alarms"})
+            note = (
+                " It is also in the tablet's Clock app: "
+                + ("it is open now, " if opened else "")
+                + "tell the person to remove it there with a long press."
             )
-            if not ok:
-                note = " The Clock app may still have it: tell the person to check."
         await host.agenda_changed()
         return _ok("Cancelled." + note)
 

@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS agenda (
   due_at      TEXT NOT NULL,              -- local time, YYYY-MM-DD HH:MM:SS (stays 7:00 across DST)
   label       TEXT NOT NULL DEFAULT '',
   repeat_days TEXT,                       -- alarms only: e.g. "1,2,3,4,5" (Mon=1)
+  on_device   INTEGER NOT NULL DEFAULT 0,  -- 1: the tablet's Clock app rings it, not Frankino
   created_at  TEXT NOT NULL,
   rang_at     TEXT,
   ended_at    TEXT,
@@ -154,6 +155,14 @@ class Store:
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.executescript(SCHEMA)
         self._lock = threading.Lock()
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Columns added after a table already existed on a server."""
+        cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(agenda)")}
+        if "on_device" not in cols:
+            self.conn.execute("ALTER TABLE agenda ADD COLUMN on_device INTEGER NOT NULL DEFAULT 0")
+            self.conn.commit()
 
     def _write(self, sql: str, args: tuple = ()) -> int:
         with self._lock:
@@ -338,10 +347,12 @@ class Store:
 
     # ── agenda ─────────────────────────────────────────────────────────────
 
-    def agenda_add(self, kind: str, due_at: str, label: str, repeat_days: str | None = None) -> int:
+    def agenda_add(
+        self, kind: str, due_at: str, label: str, repeat_days: str | None = None, on_device: bool = False
+    ) -> int:
         return self._write(
-            "INSERT INTO agenda (kind, due_at, label, repeat_days, created_at) VALUES (?, ?, ?, ?, ?)",
-            (kind, due_at, label, repeat_days, _iso()),
+            "INSERT INTO agenda (kind, due_at, label, repeat_days, on_device, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (kind, due_at, label, repeat_days, int(on_device), _iso()),
         )
 
     def agenda_live(self) -> list[dict]:

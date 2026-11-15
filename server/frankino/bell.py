@@ -6,8 +6,9 @@ conversation: it waits for the turn to end, at most `PATIENCE_S` seconds. With
 no tablet connected the item waits and rings as soon as one comes back, saying
 how late it is.
 
-Alarms are not rung here: the tablet's Clock app rings them. When their time
-passes, a one-off alarm is closed and a repeating one moves to its next day.
+Alarms on the tablet's Clock app are not rung here: the Clock app rings them. When
+their time passes, a one-off alarm is closed and a repeating one moves to its next
+day. Alarms too far ahead for the Clock app ring here, like a timer.
 """
 
 from __future__ import annotations
@@ -48,7 +49,7 @@ async def ring_due(store: Store, tz: str, ringers: Callable[[], list[Ringer]], w
     now = local_now(tz)
     for item in store.agenda_due(now.strftime(FMT)):
         due = datetime.strptime(item["due_at"], FMT)
-        if item["kind"] == "alarm":
+        if item["kind"] == "alarm" and item["on_device"]:
             days = [int(d) for d in (item["repeat_days"] or "").split(",") if d]
             if days:
                 store.agenda_move(item["id"], next_repeat(due, days).strftime(FMT))
