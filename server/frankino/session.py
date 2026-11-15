@@ -105,10 +105,23 @@ def repeats(sentence: str, earlier: list[str], threshold: float = 0.6) -> bool:
     A small model sometimes says the same thing before and after drawing a card: the second
     one is dropped rather than heard twice.
     """
+    plain = " ".join(re.findall(r"\w+", sentence.lower()))
+    if len(plain) >= 8 and any(plain in " ".join(re.findall(r"\w+", e.lower())) for e in earlier):
+        return True
     words = _content(sentence)
     if len(words) < 3:
         return False
     return any(len(words & _content(e)) / len(words) >= threshold for e in earlier)
+
+
+def _drawable(snapshot: list[dict]) -> bool:
+    try:
+        for m in snapshot:
+            if "updateComponents" in m:
+                a2ui.validate(m["updateComponents"]["components"])
+        return True
+    except (a2ui.Invalid, KeyError, TypeError):
+        return False
 
 
 class Lead:
@@ -650,7 +663,12 @@ class Session:
     async def _replay_cards(self) -> None:
         """A fresh connection: the tablet forgets its cards and gets them back from here."""
         await self._send({"type": "cards_reset"})
-        for cid, c in self.cards.items():
+        for cid, c in list(self.cards.items()):
+            if c.get("snapshot") and not _drawable(c["snapshot"]):
+                # Saved by an older version and no longer passes the checks: better gone than a crash.
+                self.cards.pop(cid)
+                self.store.card_close(self.device, cid)
+                continue
             await self._send(self._meta(cid))
             if c.get("snapshot"):
                 await self._send({"type": "a2ui", "messages": c["snapshot"]})

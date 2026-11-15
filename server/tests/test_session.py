@@ -282,3 +282,4 @@ def test_a_sentence_said_twice_is_said_once():
     assert repeats("Siamo al passo due: sbatti insieme uova, tuorli, pecorino e pepe.", [first])
     assert not repeats("Fatto, latte e uova sono nella lista della spesa.", ["Aggiungo latte e uova alla spesa."])
     assert not repeats("Sì.", ["Sì."])  # too short to judge
+    assert repeats("Secondo passo:", ["Secondo passo: sbattete in una ciotola i tuorli."])

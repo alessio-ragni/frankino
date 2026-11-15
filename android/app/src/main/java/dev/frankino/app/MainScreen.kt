@@ -47,6 +47,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The main screen: the circle that shows the state (and is the only button), and the cards, one per
@@ -160,7 +162,10 @@ private fun Cards(modifier: Modifier) {
     LaunchedEffect(Unit) {
         Hub.focus.collect { id ->
             val i = Hub.cards.value.indexOfFirst { it.id == id }
-            if (i >= 0) runCatching { pager.animateScrollToPage(i) }
+            if (i < 0) return@collect
+            // A card that has just arrived is not a page yet: wait for the pager to grow.
+            withTimeoutOrNull(1500) { snapshotFlow { pager.pageCount }.first { it > i } }
+            runCatching { pager.animateScrollToPage(i) }
         }
     }
     // The card in front, so "this" in a question means this one.

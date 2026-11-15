@@ -141,6 +141,10 @@ def validate(components: Any) -> list[dict]:
             raise Invalid(
                 f"{c['id']}: {name} has no {', '.join(sorted(extra))}; it takes {', '.join(sorted(CATALOG[name]))}"
             )
+        weight = c.get("weight")
+        if weight is not None and (not isinstance(weight, (int, float)) or weight <= 0):
+            # The Android renderer crashes the whole app on a zero weight: never let one through.
+            raise Invalid(f"{c['id']}: weight must be a number greater than zero")
         for (comp, prop), allowed in ENUMS.items():
             if comp == name and prop in c and isinstance(c[prop], str) and c[prop] not in allowed:
                 raise Invalid(f"{c['id']}: {prop} must be one of {', '.join(sorted(allowed))}")
@@ -224,7 +228,7 @@ def events_tree(events: list[dict], lang: str = "it") -> list[dict]:
         if detail:
             right.append(t.text(detail, "caption"))
         col = t.add("Column", children=right, weight=1)
-        time = t.add("Text", text=e.get("time") or "—", variant="h5", weight=0)
+        time = t.add("Text", text=e.get("time") or "—", variant="h5")
         rows.append(t.add("Row", children=[time, col], align="center"))
         rows.append(t.add("Divider"))
     if rows and t.items[-1]["component"] == "Divider":

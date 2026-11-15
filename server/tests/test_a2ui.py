@@ -43,6 +43,8 @@ def test_components_are_checked_against_the_catalog():
         validate([{"id": "root", "component": "Column", "children": ["missing"]}])
     with pytest.raises(Invalid, match="variant"):
         validate([{"id": "root", "component": "Text", "text": "x", "variant": "huge"}])
+    with pytest.raises(Invalid, match="weight"):
+        validate([{"id": "root", "component": "Text", "text": "x", "weight": 0}])
     with pytest.raises(Invalid, match="root"):
         validate([{"id": "a", "component": "Text", "text": "x"}])
 
