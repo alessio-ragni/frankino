@@ -28,23 +28,23 @@ Tablet ──Tailscale (private network)──► «frankino» machine on AWS (U
 - **Cost:** the `t4g.small` machine with 20 GB of disk costs about $15 a month; OpenAI a few cents
   a day; Claude is part of the subscription.
 
-## What v0 can do
+## What it can do (v2)
 
 - You call it by name: «Frankino», «Franco», «Franchino», «Franko», also with a greeting in front
-  («ehi», «hey», «hei», «ciao», «hi»). The tablet recognizes the name by itself: until it hears it,
-  nothing goes to the server. The name said in the middle of a sentence («ho visto Franco», I saw
-  Franco) does not wake it, and if the tablet gets it wrong the server checks again on the
-  transcript and throws everything away.
-- It has a microphone switch (app, notification, quick settings), like the one on Alexa.
-- It understands and answers in Italian and in English.
-- Holding the side key opens Frankino already listening, instead of Gemini.
-- It answers aloud while it is still thinking, and shows recipes, lists and comparisons on the
-  screen (A2UI, official Android renderer).
-- After an answer it keeps listening for a few seconds without needing the name.
+  («ehi», «hey», «ciao»). The tablet recognizes the name by itself: until it hears it, nothing goes
+  to the server, and if the tablet gets it wrong the server checks again on the transcript.
+- One circle shows the state (off, waiting for the name, listening, thinking, speaking, ringing) and
+  is the only button. A short note when it hears you, a soft sound while it thinks.
+- A microphone switch (chip in the app, notification, quick settings tile), like the one on Alexa.
+- Italian and English. Holding the side key opens Frankino already listening, instead of Gemini.
+- Short spoken answers, details on cards: one card per topic, swiped left and right, updated as
+  the conversation goes on (a recipe step by step, tomorrow's events, the shopping list).
+- Alarms on the tablet's Clock app, timers and reminders rung by Frankino, household lists.
+- «Stop», «basta», «grazie» end the conversation. Calling it while it speaks turns its voice down
+  until the server knows whether someone really called.
 - Before any outward action (messages, mail, events) it shows what it is about to do and waits for
   a «sì», a «no» or a «non chiedermelo più» (yes, no, don't ask me again).
-- If you call it while it is speaking, it goes quiet and listens to you; there is also a button to
-  stop it.
+- Every question is written in a journal with its timings and tools (`remoto.sh registro`).
 
 ## 1. The server on AWS
 
@@ -79,8 +79,13 @@ Everyday commands:
 ```bash
 deploy/aws/remoto.sh aggiorna                                      # git pull + restart
 deploy/aws/remoto.sh segreti                                       # after changing an SSM parameter
+deploy/aws/remoto.sh registro 6                                    # the journal: last 6 hours (English aliases: update, secrets, journal)
 deploy/aws/remoto.sh 'journalctl -u frankino -n 50 --no-pager'     # log
 ```
+
+The configuration is `/etc/frankino/config` on the machine: model, effort, language,
+`FRANKINO_CONNECTORS` (the claude.ai connectors Frankino keeps; the others are switched off for it)
+and the rest of `.env.example`. After changing it: `systemctl restart frankino`.
 
 Test without a tablet, from a Mac on the same Tailscale network:
 

@@ -1,15 +1,16 @@
 # Frankino
 
 A voice companion with a screen. You call it by name («Frankino», «Franco», «Franchino»), talk to
-it while you cook or drive, and it gets things done with **Claude Code** and all the connectors you
-already have (messages, mail, calendar, documents). Things that are easier to understand by looking
-at them (a recipe, a list, a message before it is sent) it shows on the screen with **A2UI**,
-Google's protocol for agent-generated interfaces.
+it while you cook or drive, and it gets things done with **Claude Code** and the connectors you
+already have (messages, mail, calendar, documents), plus its own alarms, timers, reminders and
+lists. What is easier to understand by looking at it (a recipe step by step, tomorrow's events, the
+shopping list) goes on a card, one per topic, drawn with **A2UI**, Google's protocol for
+agent-generated interfaces.
 
 ```
 Android tablet  ── voice (PCM) ──►  server  ── text ──►  Claude Code (Agent SDK)
   listens,      ◄── voice + A2UI ──  transcribes, speaks,  claude.ai connectors + MCP
-  speaks, shows                      asks for confirmation «mostra» tool (A2UI)
+  speaks, shows                      asks for confirmation card tools (A2UI), alarms, lists
 ```
 
 ## What you need
@@ -54,11 +55,17 @@ Tailscale name, for example `mio-mac:4390`) and the token. It downloads the smal
 How it listens:
 - **It waits for its name** («Franco», «Franchino», «Frankino»). It recognizes it on the tablet with
   a closed grammar: until it hears the name, nothing goes to the server.
-- **Right after an answer** it listens for a few seconds even without the name, and while a
-  confirmation is open it waits for your «sì» or «no» (yes or no).
-- **If you call it while it is speaking** it goes quiet and listens to you. The talk
-  button does the same by hand.
-- The screen draws A2UI with the official Compose renderer (`androidx.a2ui`, alpha).
+- **One button**: the circle in the middle shows the state (off, waiting, listening, thinking,
+  speaking) and does the obvious thing for it: listen without the name, finish, or stop.
+- **Right after an answer** it listens for a few seconds even without the name; «stop», «basta» or
+  «grazie» end the conversation.
+- **If you call it while it is speaking** it turns its voice down and the server checks the
+  sentence: if someone really called, it goes quiet and listens; if it was its own voice, it carries
+  on.
+- The cards are drawn with the official Compose A2UI renderer (`androidx.a2ui`, alpha).
+
+To try it without a voice, from the computer:
+`adb shell am start -a dev.frankino.app.ASCOLTA --es text "'Franco, la carbonara per due'"`.
 
 ## How it works
 
@@ -80,9 +87,17 @@ buttons. «Don't ask me again» applies to that one tool and can be withdrawn
 ## What stays on the server
 
 The audio of what you say, for 30 days (then it is deleted, the text stays), the transcripts, the
-exchanges and the permissions. All of it in `FRANKINO_DATA`, never in the repo. Recordings that
-were not meant for Frankino (it woke up without anyone calling it) are deleted at once, audio and
-text.
+journal of every question (timings, tools, errors), the cards, alarms and lists, and the
+permissions. All of it in `FRANKINO_DATA`, never in the repo. Recordings that were not meant for
+Frankino (it woke up without anyone calling it) are deleted at once, audio and text. Read the
+journal with `deploy/aws/remoto.sh registro <hours>` or `python -m frankino.journal`.
+
+## Releases
+
+Versions follow [Semantic Versioning](https://semver.org/) and are listed in
+[`CHANGELOG.md`](CHANGELOG.md). Each one is a tag `vX.Y.Z` and a
+[GitHub release](https://github.com/alessio-ragni/frankino/releases) with the Android APK attached.
+How a release is cut is in `.claude/skills/release/SKILL.md`.
 
 ## Layout
 

@@ -1,10 +1,10 @@
-"""Fa da tablet dal Mac, per provare il server prima che il tablet ci sia.
+"""Plays the tablet from the Mac, to try the server before the tablet is there.
 
-    cd server && .venv/bin/python ../tools/prova_mac.py                 # a voce: Invio per parlare, Invio per finire
-    cd server && .venv/bin/python ../tools/prova_mac.py --scrivi         # a testo: scrivi e premi Invio
+    cd server && .venv/bin/python ../tools/prova_mac.py                 # voice: Enter to talk, Enter to stop
+    cd server && .venv/bin/python ../tools/prova_mac.py --scrivi         # text: type and press Enter (alias --text)
 
-Mentre aspetta una conferma, rispondi «sì», «no» o «non chiedermelo più» (a voce o scritto).
-Quello che arriverebbe sullo schermo del tablet viene stampato qui come JSON A2UI.
+While it waits for a confirmation, answer «sì», «no» or «non chiedermelo più» (spoken or typed).
+What would reach the tablet's screen is printed here as A2UI JSON.
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ async def record_until_enter() -> bytes:
 
     loop = asyncio.get_running_loop()
     with sd.RawInputStream(samplerate=RATE_IN, channels=1, dtype="int16", callback=cb):
-        await loop.run_in_executor(None, input, "🎙  parla, poi Invio… ")
+        await loop.run_in_executor(None, input, "🎙  talk, then Enter… ")
     return b"".join(chunks)
 
 
@@ -57,10 +57,10 @@ async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", default=os.environ.get("FRANKINO_URL", "ws://127.0.0.1:4390/ws"))
     ap.add_argument("--token", default=os.environ.get("FRANKINO_TOKEN", ""))
-    ap.add_argument("--scrivi", action="store_true", help="scrivi invece di parlare")
+    ap.add_argument("--scrivi", "--text", dest="scrivi", action="store_true", help="type instead of talking")
     args = ap.parse_args()
     if not args.token:
-        sys.exit("Serve il gettone: --token oppure FRANKINO_TOKEN nell'ambiente.")
+        sys.exit("The token is required: --token or FRANKINO_TOKEN in the environment.")
 
     _, ensure = _player()
     rate = {"value": 24_000}
@@ -82,7 +82,7 @@ async def main() -> None:
                 elif kind == "a2ui":
                     print("📺 " + json.dumps(data["messages"], ensure_ascii=False, indent=1))
                 elif kind == "ready":
-                    print(f"✅ collegato (voce: {data['voice']}, orecchie: {data['ears']})")
+                    print(f"✅ connected (voice: {data['voice']}, ears: {data['ears']})")
                 elif kind in ("thinking", "done", "say_end"):
                     if kind == "done":
                         print(f"   ({data['ms']} ms)")
@@ -98,7 +98,7 @@ async def main() -> None:
                     if line.strip():
                         await ws.send(json.dumps({"type": "text", "text": line}))
                 else:
-                    await loop.run_in_executor(None, input, "(Invio per parlare) ")
+                    await loop.run_in_executor(None, input, "(Enter to talk) ")
                     await ws.send(json.dumps({"type": "start", "rate": RATE_IN}))
                     pcm = await record_until_enter()
                     for i in range(0, len(pcm), 8000):

@@ -1,4 +1,4 @@
-# segreti e dati: non entrano mai nella repo
+# secrets and data: never in the repo
 .env
 *.env
 !.env.example
@@ -21,6 +21,6 @@ android/local.properties
 *.jks
 *.keystore
 .DS_Store
-# board k0: resta solo sul Mac
+# k0 board: stays on the Mac only
 .k0/
 android/.kotlin/

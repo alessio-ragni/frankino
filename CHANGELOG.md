@@ -6,6 +6,73 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-15
+
+Frankino now shows what it is doing and has one button, keeps each topic on its own card that
+follows the conversation, and can set alarms, timers, reminders and lists. It answers sooner and
+shorter, and every question leaves a record of what it did and how long it took. The whole project
+is now written in English. Tried on the real tablet with written questions; spoken use is still to
+be tried at home.
+
+### Added
+
+- **One circle that shows the state and is the only button.** Off (red ring), waiting for its name
+  (it breathes), listening (blue, it moves with your voice), thinking (four dots turning), speaking
+  (moving bars), ringing. Tapping it does the obvious thing: listen without the name, finish,
+  stop. The «Parla» and «Zitto» buttons are gone.
+- **Sounds that say it heard you.** A short note when it hears its name and a soft two-note pulse
+  while it thinks, from the moment you stop talking. If nothing has been said after three seconds
+  it says «un attimo».
+- **Cards, one per topic, swiped left and right.** A recipe, tomorrow's events, the shopping list,
+  the alarms: each is a card that updates in place as you talk. «Prossimo passo» moves the recipe
+  on, with the step you are on large at the top; «quanto pecorino?» is answered on the same card.
+  Under each card are the last answers on that topic, with your question small above each. Close a
+  card with its ✕. Cards come back after a restart.
+- **Recipes by phase and events by day.** Recipes come with the ingredients in two columns and the
+  steps grouped in phases; the calendar comes as one row per event with time and place.
+- **Alarms, timers, reminders and lists.** Alarms go on the tablet's Clock app, so they ring even
+  if Frankino is off (Android lets no app delete them: to cancel one, Frankino opens the Clock app).
+  Timers and reminders ring from Frankino with a bell and his voice, and wait for a conversation to
+  end. Household lists, the shopping list first.
+- **«Stop», «basta», «grazie»** end the conversation and send Frankino back to waiting for its name.
+- **A journal of everything it does.** Every question is written down with why it started, how long
+  each step took, which tools it used, whether they failed and whether it asked for confirmation;
+  so are discarded recordings, cards that failed to draw and things it had no tool for. Read it with
+  the `registro` command, or ask Claude about it.
+- **Releases on GitHub**, with the Android app attached, and automatic checks on every change.
+
+### Changed
+
+- **Shorter answers aloud, the details on the card.** It says the headline and draws the rest.
+- **Only the household connectors**: WhatsApp, Gmail, Google Calendar and Google Drive, plus web
+  search. Every connector made every question heavier; with the others switched off, and the
+  tools of these four that a voice never needs, a question carries about 40 thousand tokens of
+  instructions instead of nearly 290 thousand. Measured on the server: a simple question gets its
+  first word in about 1.2 seconds and its first sound in about 2.
+- **No extended thinking**, and the conversation with Claude starts afresh after ten quiet
+  minutes, so it does not grow forever.
+- **It stops listening sooner**: a pause of 0.8 seconds, instead of 1.3, means you are done.
+- **The voice starts sooner**: the next sentence is prepared while the current one plays, and the
+  first one can start at a comma.
+- **The app's words are in English, with an Italian translation** that the tablet uses when it is
+  set to Italian. What Frankino says follows the language you speak.
+- **Everything in the repository is now in English**: code, documentation and this changelog.
+
+### Fixed
+
+- **It no longer stops itself.** It used to hear its own name in its answers and go quiet. Now it
+  never says its own name, the tablet's echo canceller is on when the tablet has one, and when it
+  thinks it heard its name while speaking it only turns the voice down until the server has read
+  the sentence: its own voice, and it carries on.
+- **New cards are no longer lost at the bottom of the screen**, and the old carbonara no longer
+  stays on top: the screen goes to the card being talked about.
+- **A card that cannot be drawn is no longer silent.** The server checks every card before sending
+  it, and a drawing error goes back to Claude and into the journal.
+- **An unanswered confirmation no longer stays on the screen**, and stopping Frankino counts as a
+  «no».
+- **A sentence said twice is said once.** The small model sometimes repeated itself before and
+  after drawing a card.
+
 ## [1.0.0] - 2026-11-14
 
 Frankino no longer wakes up by itself when people talk around the house, and it can be switched
@@ -109,3 +176,4 @@ arrives.
   settings, not written in the code.
 
 [1.0.0]: https://github.com/alessio-ragni/frankino/releases/tag/v1.0.0
+[2.0.0]: https://github.com/alessio-ragni/frankino/releases/tag/v2.0.0

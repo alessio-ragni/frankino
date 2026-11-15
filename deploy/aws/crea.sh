@@ -1,14 +1,14 @@
 #!/bin/bash
-# Crea su AWS tutto quello che serve a Frankino: una macchina piccola senza porte aperte,
-# il ruolo per leggere i segreti, il bucket del backup. Si lancia una volta, dal proprio computer:
+# Creates on AWS everything Frankino needs: a small machine with no open ports, the role that
+# reads the secrets, the backup bucket. Run it once, from your own computer:
 #
-#   AWS_PROFILE=<profilo> deploy/aws/crea.sh
+#   AWS_PROFILE=<profile> deploy/aws/crea.sh
 #
-# Prima mettere i segreti in SSM (vedi docs/messa-in-opera.md). Rilanciarlo non duplica niente:
-# se la macchina esiste già si ferma.
+# Put the secrets in SSM first (see docs/deployment.md). Running it again duplicates nothing:
+# if the machine already exists it stops.
 set -euo pipefail
 
-: "${AWS_PROFILE:?imposta AWS_PROFILE}"
+: "${AWS_PROFILE:?set AWS_PROFILE}"
 export AWS_REGION="${AWS_REGION:-eu-west-1}"
 NAME="${FRANKINO_NAME:-frankino}"
 TYPE="${FRANKINO_INSTANCE_TYPE:-t4g.small}"
@@ -23,11 +23,11 @@ existing=$(aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=$NAME" "Name=instance-state-name,Values=pending,running,stopping,stopped" \
   --query 'Reservations[].Instances[].InstanceId' --output text)
 if [ -n "$existing" ]; then
-  echo "La macchina $NAME esiste già: $existing"
+  echo "The machine $NAME already exists: $existing"
   exit 0
 fi
 
-echo "› bucket per il backup: $BUCKET"
+echo "› backup bucket: $BUCKET"
 if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
   aws s3api create-bucket --bucket "$BUCKET" \
     --create-bucket-configuration LocationConstraint="$AWS_REGION" >/dev/null
@@ -35,7 +35,7 @@ if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
     BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 fi
 
-echo "› ruolo della macchina"
+echo "› machine role"
 ROLE="$NAME-server"
 if ! aws iam get-role --role-name "$ROLE" >/dev/null 2>&1; then
   aws iam create-role --role-name "$ROLE" --assume-role-policy-document '{
@@ -58,13 +58,13 @@ aws iam put-role-policy --role-name "$ROLE" --policy-name "$NAME-segreti-e-backu
   ]
 }"
 
-echo "› gruppo di sicurezza senza porte aperte"
+echo "› security group with no open ports"
 VPC=$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)
 SG=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=$NAME" "Name=vpc-id,Values=$VPC" \
   --query 'SecurityGroups[0].GroupId' --output text)
 if [ "$SG" = "None" ]; then
   SG=$(aws ec2 create-security-group --group-name "$NAME" --vpc-id "$VPC" \
-    --description "Frankino: nessun ingresso, si arriva solo via Tailscale" --query GroupId --output text)
+    --description "Frankino: no inbound, reachable only through Tailscale" --query GroupId --output text)
 fi
 
 AMI=$(aws ssm get-parameter \
@@ -75,8 +75,8 @@ USERDATA=$(mktemp)
 sed -e "s|__REPO__|$REPO|" -e "s|__BUCKET__|$BUCKET|" -e "s|__PARAMS__|$PARAMS|" \
   "$HERE/user-data.sh" >"$USERDATA"
 
-echo "› macchina $TYPE ($AMI)"
-# Il profilo appena creato impiega qualche secondo a essere visibile a EC2.
+echo "› machine $TYPE ($AMI)"
+# A freshly created instance profile takes a few seconds to become visible to EC2.
 for i in 1 2 3 4 5 6; do
   if ID=$(aws ec2 run-instances --image-id "$AMI" --instance-type "$TYPE" \
     --iam-instance-profile Name="$ROLE" --security-group-ids "$SG" \
@@ -90,5 +90,5 @@ for i in 1 2 3 4 5 6; do
   sleep 10
 done
 rm -f "$USERDATA"
-[ -n "${ID:-}" ] || { echo "non sono riuscito a creare la macchina"; exit 1; }
-echo "Creata: $ID. Fra 5 minuti circa è pronta: poi deploy/aws/tailscale.sh"
+[ -n "${ID:-}" ] || { echo "could not create the machine"; exit 1; }
+echo "Created: $ID. Ready in about 5 minutes: then join it to Tailscale (docs/deployment.md)"

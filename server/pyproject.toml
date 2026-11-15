@@ -1,6 +1,6 @@
 [project]
 name = "frankino"
-version = "0.1.0"
+version = "2.0.0"
 description = "Un compagno vocale con schermo: Claude Code dietro, un tablet Android davanti."
 license = "MIT"
 requires-python = ">=3.11"

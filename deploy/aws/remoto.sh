@@ -6,23 +6,25 @@
 #   AWS_PROFILE=<profile> deploy/aws/remoto.sh aggiorna     # git pull + restart
 #   AWS_PROFILE=<profile> deploy/aws/remoto.sh segreti      # re-reads the secrets from SSM and restarts
 #   AWS_PROFILE=<profile> deploy/aws/remoto.sh registro 6   # the journal: last 6 hours of questions, timings, tools
+#
+# English aliases: update = aggiorna, secrets = segreti, journal = registro.
 set -euo pipefail
 
-: "${AWS_PROFILE:?imposta AWS_PROFILE}"
+: "${AWS_PROFILE:?set AWS_PROFILE}"
 export AWS_REGION="${AWS_REGION:-eu-west-1}"
 NAME="${FRANKINO_NAME:-frankino}"
 CMD="${1:?which command?}"
 HOURS="${2:-24}"
 
 case "$CMD" in
-  aggiorna)
+  aggiorna|update)
     CMD='cd /opt/frankino && sudo -u frankino git pull --ff-only &&
       sudo -u frankino server/.venv/bin/pip install --quiet -e server &&
       systemctl restart frankino && sleep 3 && systemctl --no-pager status frankino | head -5' ;;
-  registro)
+  registro|journal)
     CMD="DATA=\$(grep ^FRANKINO_DATA= /etc/frankino/config | cut -d= -f2); cd /opt/frankino/server &&
       sudo -u frankino .venv/bin/python -m frankino.journal --db \$DATA/frankino.db --hours $HOURS" ;;
-  segreti)
+  segreti|secrets)
     CMD='systemctl restart frankino-secrets frankino && sleep 3 && systemctl --no-pager status frankino | head -5' ;;
 esac
 
