@@ -20,7 +20,7 @@ class FakeHost:
         self.rung = []
         self.busy = False
 
-    async def device(self, action):
+    async def device_action(self, action):
         self.actions.append(action)
         return self.device_ok
 

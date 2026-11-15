@@ -676,7 +676,7 @@ class Session:
 
     # ── household (called by the home tools and the bell) ───────────────────
 
-    async def device(self, action: dict[str, Any]) -> bool:
+    async def device_action(self, action: dict[str, Any]) -> bool:
         """Asks the tablet to do something on the device (an alarm on its Clock app) and waits for the answer."""
         self._device_n += 1
         n = self._device_n

@@ -62,7 +62,7 @@ def spoken_when(when: datetime, now: datetime) -> str:
 class Host(Protocol):
     """What the session offers these tools."""
 
-    async def device(self, action: dict[str, Any]) -> bool: ...
+    async def device_action(self, action: dict[str, Any]) -> bool: ...
 
     async def agenda_changed(self) -> None: ...
 
@@ -121,7 +121,7 @@ def tools(store: Store, host: Host, tz: str) -> list:
             return _err(str(bad))
         days = [DAYS[d[:3].lower()] for d in args.get("repeat") or [] if d[:3].lower() in DAYS]
         label = str(args.get("label") or "Sveglia")
-        ok = await host.device(
+        ok = await host.device_action(
             {"action": "set_alarm", "hour": when.hour, "minute": when.minute, "days": days, "label": label}
         )
         if not ok:
@@ -197,7 +197,7 @@ def tools(store: Store, host: Host, tz: str) -> list:
         note = ""
         if item["kind"] == "alarm":
             due = datetime.strptime(item["due_at"], FMT)
-            ok = await host.device(
+            ok = await host.device_action(
                 {"action": "dismiss_alarm", "hour": due.hour, "minute": due.minute, "label": item["label"]}
             )
             if not ok:

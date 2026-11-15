@@ -87,6 +87,11 @@ class FakeAgent:
         if "pecorino" in text:
             on_text("[card:carbonara] Cinquanta grammi.")
             return "[card:carbonara] Cinquanta grammi."
+        if "sveglia" in text:
+            alarm = _tool(self.servers, "home", "set_alarm")
+            out = await alarm({"time": "07:00", "label": "Scuola"})
+            on_text("[card:agenda] " + ("Non ci riesco." if out.get("is_error") else "Sveglia messa."))
+            return "ok"
         if "latte" in text:
             add = _tool(self.servers, "home", "list_add")
             await add({"items": ["latte"]})
@@ -283,3 +288,17 @@ def test_a_sentence_said_twice_is_said_once():
     assert not repeats("Fatto, latte e uova sono nella lista della spesa.", ["Aggiungo latte e uova alla spesa."])
     assert not repeats("Sì.", ["Sì."])  # too short to judge
     assert repeats("Secondo passo:", ["Secondo passo: sbattete in una ciotola i tuorli."])
+
+
+def test_an_alarm_goes_to_the_tablet_clock(settings):
+    with TestClient(_app(settings, "Franco, mettimi una sveglia alle sette")) as client:
+        with client.websocket_connect("/ws?token=prova") as ws:
+            _connect(ws)
+            ws.send_json({"type": "start", "why": "name"})
+            ws.send_bytes(b"\x00\x00" * 16000)
+            ws.send_json({"type": "end"})
+            device = next(m for m in _messages(ws, "device") if m["type"] == "device")
+            assert device["action"] == "set_alarm" and device["hour"] == 7 and device["label"] == "Scuola"
+            ws.send_json({"type": "device_result", "id": device["id"], "ok": True})
+            got = _messages(ws, "done")
+            assert any(m.get("text") == "Sveglia messa." for m in got)
