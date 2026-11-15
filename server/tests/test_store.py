@@ -4,7 +4,7 @@ from pathlib import Path
 from frankino.store import Store
 
 
-def test_dopo_trenta_giorni_l_audio_va_via_il_testo_resta(settings):
+def test_after_thirty_days_audio_goes_text_stays(settings):
     store = Store(settings.db_path, settings.audio_dir)
     rid = store.save_recording(b"\x00\x00" * 16000, "tablet")
     store.set_transcript(rid, "ciao", "finto")

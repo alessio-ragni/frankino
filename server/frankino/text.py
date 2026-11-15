@@ -1,11 +1,11 @@
-"""Dal testo che arriva a pezzi alle frasi da dire.
+"""From text arriving in pieces to sentences to say.
 
-Claude scrive la risposta un pezzo alla volta. Per cominciare a parlare il prima
-possibile si dice tutto quello che sta prima dell'ultima fine di frase, e il
-resto aspetta il pezzo dopo. A frase e non a parola: una frase è il pezzo più
-corto che ha ancora una sua intonazione.
+Claude writes the answer one piece at a time. To start speaking as soon as
+possible, everything before the last sentence end is said, and the rest waits
+for the next piece. By sentence and not by word: a sentence is the shortest
+piece that still has its own intonation.
 
-Ripreso dal Franco di casa, dove ha già fatto la sua strada.
+Taken from the older home assistant Franco, where it already proved itself.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ _PAUSE = re.compile(r"(?<=[,;:—–])\s+")
 _SPACES = re.compile(r"[^\S\n]+")
 _AROUND_NEWLINE = re.compile(r"\s*\n\s*")
 _LOOSE_PUNCT = re.compile(r"[^\S\n]+(?=[,.;:!?…)\]])")
-# Markdown che una voce leggerebbe ad alta voce: asterischi, cancelletti, trattini d'elenco.
+# Markdown a voice would read aloud: asterisks, hashes, list dashes.
 _MARKDOWN = re.compile(r"(\*\*|__|`+|^#+\s*|^\s*[-*•]\s+)", re.MULTILINE)
 _DROP = {"Cc", "Cf", "Cs", "Co", "Cn", "So", "Sk"}
 
@@ -80,7 +80,7 @@ def _fragments(piece: str, limit: int) -> Iterator[str]:
 
 
 class Splitter:
-    """Prende i pezzi come arrivano e restituisce le frasi già dicibili."""
+    """Takes the pieces as they come and returns the sentences ready to say."""
 
     def __init__(self, max_chars: int = MAX_CHARS) -> None:
         self.max_chars = max_chars

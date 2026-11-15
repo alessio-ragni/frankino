@@ -7,10 +7,21 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Alarms go on the tablet's Clock app, so they ring even if Frankino is down. -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
-    <!-- Il server sta dietro Tailscale, che cifra già il traffico: il websocket è ws://. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SET_ALARM" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DISMISS_ALARM" />
+        </intent>
+    </queries>
+
+    <!-- The server sits behind Tailscale, which already encrypts the traffic: the websocket is ws://. -->
     <application
-        android:label="Frankino"
+        android:label="@string/app_name"
         android:icon="@drawable/ic_launcher"
         android:allowBackup="false"
         android:usesCleartextTraffic="true"
@@ -25,7 +36,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Tasto laterale tenuto premuto: Frankino al posto di Gemini, se è l'assistente predefinito. -->
+            <!-- Side key held down: Frankino instead of Gemini, when it is the default assistant. -->
             <intent-filter>
                 <action android:name="android.intent.action.ASSIST" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -41,7 +52,7 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
-        <!-- Il tasto del microfono nel pannello rapido, come quello di Alexa. -->
+        <!-- The microphone switch in quick settings, like Alexa's button. -->
         <service
             android:name=".MicTile"
             android:exported="true"

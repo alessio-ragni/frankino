@@ -12,8 +12,8 @@ import okio.ByteString
 import okio.ByteString.Companion.toByteString
 import java.util.concurrent.TimeUnit
 
-/** Il filo col server: un websocket che si ricollega da solo se cade. */
-class Link(private val listener: Listener) {
+/** The link to the server: a websocket that reconnects on its own when it drops. */
+class Link(private val listener: Listener, private val text: (Int) -> String) {
     interface Listener {
         fun onOpen()
         fun onText(text: String)
@@ -47,7 +47,7 @@ class Link(private val listener: Listener) {
     fun close() {
         wanted = false
         generation++
-        socket?.close(1000, "ciao")
+        socket?.close(1000, "bye")
         socket = null
     }
 
@@ -60,7 +60,7 @@ class Link(private val listener: Listener) {
         val request = try {
             Request.Builder().url(target).build()
         } catch (bad: IllegalArgumentException) {
-            listener.onClosed("Indirizzo del server non valido.", retry = false)
+            listener.onClosed(text(R.string.error_bad_address), retry = false)
             return
         }
         val g = generation
@@ -98,13 +98,13 @@ class Link(private val listener: Listener) {
         if (g != generation) return
         socket = null
         if (error != null) Log.w(TAG, "collegamento perso", error)
-        // Il server rifiuta il gettone chiudendo prima di accettare: arriva come 403 (o 4401).
+        // The server refuses the token by closing before accepting: it arrives as 403 (or 4401).
         if (code == 4401 || code == 403) {
-            listener.onClosed("Il server non accetta il gettone: controllalo nelle impostazioni.", retry = false)
+            listener.onClosed(text(R.string.error_bad_token), retry = false)
             return
         }
         if (!wanted) return
-        listener.onClosed("Non raggiungo il server.", retry = true)
+        listener.onClosed(text(R.string.state_offline), retry = true)
         val wait = BACKOFF_S[minOf(attempt, BACKOFF_S.lastIndex)]
         attempt++
         Hub.scope.launch {

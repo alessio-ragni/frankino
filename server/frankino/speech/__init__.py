@@ -1,12 +1,12 @@
-"""Capire e parlare. Anthropic non fa né l'una né l'altra cosa, quindi si appoggia fuori.
+"""Understanding and speaking. Anthropic offers neither, so this leans on outside services.
 
-Due cose sole, sempre uguali per qualunque servizio:
+Only two things, the same for any service:
 
-* `Transcriber.transcribe(wav) -> testo`
-* `Speaker.speak(testo) -> pezzi di PCM 16 bit mono a `sample_rate``
+* `Transcriber.transcribe(wav) -> text`
+* `Speaker.speak(text) -> chunks of 16-bit mono PCM at `sample_rate``
 
-Il servizio si sceglie dal `.env` (`FRANKINO_STT`, `FRANKINO_TTS`). Per
-aggiungerne uno: un file in questa cartella e una riga nei due dizionari.
+The service is chosen in `.env` (`FRANKINO_STT`, `FRANKINO_TTS`). To add one:
+a file in this folder and a line in the two dictionaries.
 """
 
 from __future__ import annotations
@@ -66,11 +66,11 @@ SPEAKERS: dict[str, Callable[[Settings], Speaker]] = {
 
 def transcriber(s: Settings) -> Transcriber:
     if s.stt not in TRANSCRIBERS:
-        raise ValueError(f"FRANKINO_STT={s.stt!r}: scegli fra {', '.join(TRANSCRIBERS)}")
+        raise ValueError(f"FRANKINO_STT={s.stt!r}: choose among {', '.join(TRANSCRIBERS)}")
     return TRANSCRIBERS[s.stt](s)
 
 
 def speaker(s: Settings) -> Speaker:
     if s.tts not in SPEAKERS:
-        raise ValueError(f"FRANKINO_TTS={s.tts!r}: scegli fra {', '.join(SPEAKERS)}")
+        raise ValueError(f"FRANKINO_TTS={s.tts!r}: choose among {', '.join(SPEAKERS)}")
     return SPEAKERS[s.tts](s)

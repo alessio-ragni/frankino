@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.media.audiofx.AcousticEchoCanceler
+import android.media.audiofx.NoiseSuppressor
 import android.util.Log
 import org.vosk.Model
 import org.vosk.Recognizer
@@ -11,35 +13,38 @@ import kotlin.math.max
 import kotlin.math.sqrt
 
 /**
- * Le orecchie: un solo microfono aperto, sempre, e quattro modi di usarlo.
+ * The ears: one microphone, always open (unless switched off), and four ways of using it.
  *
- * - WAKE: aspetta il nome. Il parlato passa solo dal riconoscitore sul tablet, a grammatica chiusa.
- * - FOLLOW: subito dopo una risposta (o mentre c'è una conferma aperta) basta parlare, senza nome.
- * - RECORDING: manda la voce al server finché non smetti di parlare.
- * - BUSY: Frankino pensa o parla; se lo richiami per nome si zittisce e ti ascolta.
+ * - WAKE: waits for the name. Speech only goes through the on-tablet recognizer, closed grammar.
+ * - FOLLOW: right after an answer (or while a confirmation is open) just talk, no name needed.
+ * - RECORDING: sends the voice to the server until you stop talking.
+ * - BUSY: Frankino thinks or speaks. If it hears its name it records with [Why.BARGE]: the voice is
+ *   turned down, not stopped, and the server decides whether someone really called (or it heard
+ *   itself).
  */
 class Ears(private val listener: Listener) {
     interface Listener {
         /**
-         * Comincia a mandare: `lead` è l'audio appena prima, così il nome non si perde. `why` dice
-         * al server perché si ascolta (vedi [Why]).
+         * Starts sending: `lead` is the audio just before, so the name is not lost. `why` tells
+         * the server why it is listening (see [Why]).
          */
         fun onBegin(lead: ByteArray, why: String)
         fun onMic(pcm: ByteArray)
         fun onEnd()
-        /** Il nome detto mentre Frankino parla o pensa. */
+        /** The name heard while Frankino speaks or thinks. */
         fun onBargeIn()
         fun onFollowUpExpired()
     }
 
     enum class Mode { OFF, WAKE, FOLLOW, RECORDING, BUSY }
 
-    /** Perché si è cominciato ad ascoltare: il server ricontrolla il nome solo per [NAME]. */
+    /** Why it started listening: the server checks the name again for [NAME] and [BARGE]. */
     object Why {
         const val NAME = "name"
         const val FOLLOW = "follow"
         const val BUTTON = "button"
         const val KEY = "key"
+        const val BARGE = "barge"
     }
 
     @Volatile var mode = Mode.OFF
@@ -50,7 +55,7 @@ class Ears(private val listener: Listener) {
     @Volatile private var running = false
     private var thread: Thread? = null
 
-    // Per capire quando parli e quando hai smesso.
+    // To tell when you talk and when you have stopped.
     private var noise = 300.0
     private var speechMs = 0
     private var silenceMs = 0
@@ -60,6 +65,7 @@ class Ears(private val listener: Listener) {
     private val lead = ArrayDeque<ByteArray>()
     private var maybeMs = 0
     private var deafMs = 0
+    private var why = Why.NAME
 
     val hasWakeWord: Boolean get() = recognizer != null
 
@@ -82,15 +88,15 @@ class Ears(private val listener: Listener) {
         followLimitMs = followLimit
         maybeMs = 0
         if (next == Mode.WAKE || next == Mode.BUSY) runCatching { recognizer?.reset() }
-        // Dopo che Frankino ha parlato, l'audio di prima è la sua voce: non va rimandato al server,
-        // e il primo istante si salta perché l'altoparlante sta ancora finendo.
+        // After Frankino spoke, the audio before is his voice: it is not sent to the server, and the
+        // first moment is skipped because the speaker is still finishing.
         if (next == Mode.FOLLOW) {
             lead.clear()
             deafMs = TAIL_MS
         }
     }
 
-    /** Il microfono è aperto? Spento dall'interruttore, Android non mostra più il pallino verde. */
+    /** Is the microphone open? Switched off, Android no longer shows the green dot. */
     val micOpen: Boolean get() = running
 
     @SuppressLint("MissingPermission")
@@ -100,11 +106,11 @@ class Ears(private val listener: Listener) {
         thread = Thread({ loop() }, "frankino-ears").apply { start() }
     }
 
-    /** Chiude davvero il microfono, ma tiene pronta la parola d'avvio per quando si riapre. */
+    /** Really closes the microphone, but keeps the wake word ready for when it opens again. */
     fun closeMic() {
         set(Mode.OFF)
         running = false
-        // Può chiederlo il filo stesso del microfono (fine del seguito): in quel caso basta uscire dal giro.
+        // The microphone thread itself may ask (end of the follow-up): then leaving the loop is enough.
         if (Thread.currentThread() != thread) thread?.join(1000)
         thread = null
     }
@@ -128,11 +134,18 @@ class Ears(private val listener: Listener) {
             max(min, CHUNK_BYTES * 4),
         )
         if (rec.state != AudioRecord.STATE_INITIALIZED) {
-            Log.e(TAG, "microfono non disponibile")
-            Hub.error.value = "Il microfono non si apre: controlla il permesso."
+            Log.e(TAG, "microphone not available")
+            Hub.error.value = errorMic
             running = false
             return
         }
+        // His own voice comes back into the microphone: the tablet's echo canceller and noise
+        // suppressor take some of it away, when the tablet has them.
+        val aec = if (AcousticEchoCanceler.isAvailable()) AcousticEchoCanceler.create(rec.audioSessionId) else null
+        aec?.enabled = true
+        val ns = if (NoiseSuppressor.isAvailable()) NoiseSuppressor.create(rec.audioSessionId) else null
+        ns?.enabled = true
+        Log.i(TAG, "echo canceller: ${aec?.enabled ?: "none"}, noise suppressor: ${ns?.enabled ?: "none"}")
         rec.startRecording()
         val buf = ByteArray(CHUNK_BYTES)
         try {
@@ -143,6 +156,9 @@ class Ears(private val listener: Listener) {
                 step(chunk)
             }
         } finally {
+            Hub.level.value = 0f
+            aec?.release()
+            ns?.release()
             rec.stop()
             rec.release()
         }
@@ -153,6 +169,7 @@ class Ears(private val listener: Listener) {
         val ms = chunk.size / 2 * 1000 / INPUT_RATE
         modeMs += ms
         val level = rms(chunk)
+        Hub.level.value = (level / LOUD_RMS).toFloat().coerceIn(0f, 1f)
         val loud = level > max(noise * SPEECH_OVER_NOISE, MIN_SPEECH_RMS)
         if (!loud && mode != Mode.RECORDING) noise = noise * 0.95 + level * 0.05
 
@@ -166,7 +183,7 @@ class Ears(private val listener: Listener) {
                 remember(chunk)
                 if (wake(chunk)) {
                     listener.onBargeIn()
-                    begin(Why.NAME)
+                    begin(Why.BARGE)
                 }
             }
             Mode.FOLLOW -> {
@@ -191,21 +208,23 @@ class Ears(private val listener: Listener) {
                 } else {
                     silenceMs += ms
                 }
+                // Over his own voice silence never comes: a call over him is short anyway.
+                val limit = if (why == Why.BARGE) MAX_BARGE_MS else MAX_RECORDING_MS
                 val done = (heardSpeech && silenceMs >= END_SILENCE_MS) ||
                     (!heardSpeech && modeMs >= NOTHING_SAID_MS) ||
-                    modeMs >= MAX_RECORDING_MS
+                    modeMs >= limit
                 if (done) finish()
             }
         }
     }
 
-    /** Dal pulsante: comincia ad ascoltare subito, o smetti se stava già ascoltando. */
+    /** From the circle: start listening now, or stop if it was already listening. */
     @Synchronized
     fun toggle() {
         if (mode == Mode.RECORDING) finish() else begin(Why.BUTTON)
     }
 
-    /** Ascolta subito, senza nome (tasto laterale). Se sta già ascoltando, continua. */
+    /** Listen right away, no name (side key). If already listening, carry on. */
     @Synchronized
     fun listenNow() {
         if (mode != Mode.RECORDING) begin(Why.KEY)
@@ -215,6 +234,7 @@ class Ears(private val listener: Listener) {
         val before = lead.fold(ByteArray(0)) { acc, b -> acc + b }
         lead.clear()
         set(Mode.RECORDING)
+        this.why = why
         heardSpeech = before.isNotEmpty() && rms(before) > max(noise * SPEECH_OVER_NOISE, MIN_SPEECH_RMS)
         listener.onBegin(before, why)
     }
@@ -225,8 +245,8 @@ class Ears(private val listener: Listener) {
     }
 
     /**
-     * Il nome sentito per ultimo resta «forse» finché non arriva la parola dopo: se è un'esca non
-     * era un richiamo, se dopo [SETTLE_MS] non è arrivato niente lo è.
+     * The name heard last stays "maybe" until the next word comes: if that is a decoy it was not a
+     * call, if nothing came after [SETTLE_MS] it was.
      */
     private fun wake(chunk: ByteArray): Boolean {
         val r = recognizer ?: return false
@@ -240,7 +260,7 @@ class Ears(private val listener: Listener) {
         }
         val heard = verdict == Wake.Verdict.YES
         if (heard) {
-            Log.i(TAG, "chiamato")
+            Log.i(TAG, "called")
             r.reset()
             maybeMs = 0
         }
@@ -256,20 +276,26 @@ class Ears(private val listener: Listener) {
         private const val TAG = "frankino.ears"
         const val CHUNK_MS = 100
         const val CHUNK_BYTES = INPUT_RATE / 1000 * CHUNK_MS * 2
-        // Il nome può essere riconosciuto anche un secondo dopo averlo detto: si tiene il prima.
+        // The name may be recognized a second after it was said: the audio before is kept.
         const val LEAD_MS = 3000
         const val SETTLE_MS = 700
         const val TAIL_MS = 400
-        // Dopo una risposta si ascolta poco e solo una voce vera: il chiacchiericcio di casa non deve
-        // ripartire da solo. Il server poi scarta l'eco e quello che non era per Frankino.
+        // After an answer it listens briefly and only to a real voice: household chatter must not
+        // start a turn on its own. The server then drops the echo and what was not for Frankino.
         const val FOLLOW_MS = 5000
         const val FOLLOW_TRIGGER_MS = 400
-        const val END_SILENCE_MS = 1300
+        // How long a pause means "I'm done". Shorter answers sooner; too short cuts you off.
+        const val END_SILENCE_MS = 800
+        const val MAX_BARGE_MS = 6000
         const val NOTHING_SAID_MS = 5000
         const val MAX_RECORDING_MS = 5 * 60 * 1000
         const val SPEECH_OVER_NOISE = 3.0
-        // Da lontano la voce arriva sui 300-900, il silenzio di casa sotto i 50.
+        // From afar a voice arrives around 300-900, the house's silence below 50.
         const val MIN_SPEECH_RMS = 200.0
+        const val LOUD_RMS = 3000.0
+
+        /** Set by the service from the resources, so the ears can say what went wrong. */
+        @Volatile var errorMic: String = "The microphone won't open"
 
         fun rms(pcm: ByteArray): Double {
             if (pcm.size < 2) return 0.0

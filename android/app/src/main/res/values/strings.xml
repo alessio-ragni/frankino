@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Frankino</string>
+
+    <!-- States, under the orb. -->
+    <string name="state_setup">Needs setting up</string>
+    <string name="state_connecting">Connecting…</string>
+    <string name="state_offline">Can\'t reach the server</string>
+    <string name="state_mic_off">Microphone off</string>
+    <string name="state_mic_off_hint">Tap the circle for one question</string>
+    <string name="state_idle">Waiting for my name</string>
+    <string name="state_idle_hint">Say «Franco» or tap the circle</string>
+    <string name="state_listening">Listening</string>
+    <string name="state_listening_hint">Tap when you\'re done</string>
+    <string name="state_follow">Go on</string>
+    <string name="state_follow_hint">Still listening a few seconds, no name needed</string>
+    <string name="state_thinking">Thinking</string>
+    <string name="state_speaking">Speaking</string>
+    <string name="state_stop_hint">Tap to stop me</string>
+    <string name="state_ringing">Ringing</string>
+    <string name="state_ringing_hint">Tap or say «stop»</string>
+
+    <!-- Main screen. -->
+    <string name="mic_on">Mic on</string>
+    <string name="mic_off">Mic off</string>
+    <string name="settings">Settings</string>
+    <string name="close_card">Close card</string>
+    <string name="orb_description">Listen</string>
+    <string name="no_cards">Nothing on screen yet</string>
+    <string name="no_cards_hint">Ask for a recipe, your calendar or the shopping list: it shows up here, one card per topic.</string>
+    <string name="downloading_wake">Downloading the wake word: %1$d%%</string>
+
+    <!-- Settings. -->
+    <string name="settings_intro">The server address is the Mac (or server) name on Tailscale, e.g. «my-mac:4390». The token is FRANKINO_TOKEN from the server\'s .env.</string>
+    <string name="server_address">Server address</string>
+    <string name="token">Token</string>
+    <string name="save_connect">Save and connect</string>
+
+    <!-- Errors. -->
+    <string name="error_mic_permission">Without the microphone permission Frankino can\'t hear you.</string>
+    <string name="error_mic">The microphone won\'t open: check the permission.</string>
+    <string name="error_wake">Can\'t prepare the wake word: use the circle to talk.</string>
+    <string name="error_no_ears">The server has no transcription: configure the key.</string>
+    <string name="error_no_voice">The server has no voice: it will only answer on screen.</string>
+
+    <!-- Notification and quick settings tile. -->
+    <string name="channel_name">Listening</string>
+    <string name="channel_description">Frankino is listening for its name</string>
+    <string name="notif_on">Listening: call me by name</string>
+    <string name="notif_off">Microphone off: not listening</string>
+    <string name="notif_turn_off">Turn mic off</string>
+    <string name="notif_turn_on">Turn mic on</string>
+    <string name="tile_on">Listening</string>
+    <string name="tile_off">Mic off</string>
+    <string name="error_bad_address">The server address is not valid.</string>
+    <string name="error_bad_token">The server refuses the token: check it in the settings.</string>
+</resources>

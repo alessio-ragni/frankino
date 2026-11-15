@@ -7,8 +7,8 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
 /**
- * La bocca: suona il PCM che arriva dal server, a pezzi, mentre arriva. Un filo suo, così il
- * websocket non resta mai fermo ad aspettare l'altoparlante.
+ * The mouth: plays the PCM coming from the server, in pieces, as it arrives. On its own thread, so
+ * the websocket never waits for the speaker.
  */
 class Voice {
     private sealed interface Item {
@@ -23,6 +23,7 @@ class Voice {
     @Volatile private var running = true
     @Volatile private var generation = 0
     @Volatile private var writing = false
+    @Volatile private var volume = 1f
 
     private val thread = Thread({ loop() }, "frankino-voice").apply { start() }
 
@@ -34,7 +35,7 @@ class Voice {
         queue.put(Item.Pcm(pcm))
     }
 
-    /** Zitto subito: butta quello che resta da dire. */
+    /** Quiet at once: throws away what is left to say. */
     fun hush() {
         generation++
         queue.clear()
@@ -48,7 +49,13 @@ class Voice {
         written = 0
     }
 
-    /** Sta ancora suonando qualcosa, o ha ancora qualcosa in coda? */
+    /** Turned down while someone may be talking over it, back up if it was a false alarm. */
+    fun duck(down: Boolean) {
+        volume = if (down) DUCKED else 1f
+        track?.let { runCatching { it.setVolume(volume) } }
+    }
+
+    /** Is something still playing, or still queued? */
     val busy: Boolean
         get() = queue.isNotEmpty() || writing || sounding
 
@@ -75,7 +82,7 @@ class Voice {
             }
             when (item) {
                 is Item.Rate -> if (item.rate != rate || track == null) {
-                    // Si cambia solo a coda vuota: aspetta che finisca la frase prima.
+                    // Changed only with an empty queue: wait for the sentence before to finish.
                     drain()
                     rate = item.rate
                     track?.release()
@@ -128,8 +135,13 @@ class Voice {
             .setBufferSizeInBytes(min * 4)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
+        t.setVolume(volume)
         t.play()
         written = 0
         return t
+    }
+
+    companion object {
+        private const val DUCKED = 0.2f
     }
 }

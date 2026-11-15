@@ -1,29 +1,34 @@
 #!/bin/bash
-# Lancia un comando sulla macchina Frankino via SSM (nessuna porta aperta, nessuna chiave SSH)
-# e ne stampa l'uscita. Esempi:
+# Runs a command on the Frankino machine through SSM (no open port, no SSH key) and prints its
+# output. Examples:
 #
-#   AWS_PROFILE=<profilo> deploy/aws/remoto.sh 'journalctl -u frankino -n 50 --no-pager'
-#   AWS_PROFILE=<profilo> deploy/aws/remoto.sh aggiorna     # git pull + riavvio
-#   AWS_PROFILE=<profilo> deploy/aws/remoto.sh segreti      # rilegge i segreti da SSM e riavvia
+#   AWS_PROFILE=<profile> deploy/aws/remoto.sh 'journalctl -u frankino -n 50 --no-pager'
+#   AWS_PROFILE=<profile> deploy/aws/remoto.sh aggiorna     # git pull + restart
+#   AWS_PROFILE=<profile> deploy/aws/remoto.sh segreti      # re-reads the secrets from SSM and restarts
+#   AWS_PROFILE=<profile> deploy/aws/remoto.sh registro 6   # the journal: last 6 hours of questions, timings, tools
 set -euo pipefail
 
 : "${AWS_PROFILE:?imposta AWS_PROFILE}"
 export AWS_REGION="${AWS_REGION:-eu-west-1}"
 NAME="${FRANKINO_NAME:-frankino}"
-CMD="${1:?quale comando?}"
+CMD="${1:?which command?}"
+HOURS="${2:-24}"
 
 case "$CMD" in
   aggiorna)
     CMD='cd /opt/frankino && sudo -u frankino git pull --ff-only &&
       sudo -u frankino server/.venv/bin/pip install --quiet -e server &&
       systemctl restart frankino && sleep 3 && systemctl --no-pager status frankino | head -5' ;;
+  registro)
+    CMD="DATA=\$(grep ^FRANKINO_DATA= /etc/frankino/config | cut -d= -f2); cd /opt/frankino/server &&
+      sudo -u frankino .venv/bin/python -m frankino.journal --db \$DATA/frankino.db --hours $HOURS" ;;
   segreti)
     CMD='systemctl restart frankino-secrets frankino && sleep 3 && systemctl --no-pager status frankino | head -5' ;;
 esac
 
 ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=$NAME" "Name=instance-state-name,Values=running" \
   --query 'Reservations[0].Instances[0].InstanceId' --output text)
-[ "$ID" != "None" ] || { echo "la macchina $NAME non è accesa"; exit 1; }
+[ "$ID" != "None" ] || { echo "the machine $NAME is not running"; exit 1; }
 
 PARAMS=$(python3 -c 'import json,sys; print(json.dumps({"commands":[sys.argv[1]]}))' "$CMD")
 CID=$(aws ssm send-command --instance-ids "$ID" --document-name AWS-RunShellScript \

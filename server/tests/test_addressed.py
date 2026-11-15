@@ -1,8 +1,8 @@
-"""Il secondo controllo: la frase comincia col nome? È l'eco della sua voce?"""
+"""The second check: does the sentence start with the name? Is it the echo of his voice?"""
 
 import pytest
 
-from frankino.addressed import called, echo, silent
+from frankino.addressed import called, echo, silent, stopped
 
 
 @pytest.mark.parametrize(
@@ -14,14 +14,14 @@ from frankino.addressed import called, echo, silent
         "Frankino, metti un timer",
         "ok Franko",
         "Hey Franco, what time is it?",
-        "Fraco.",  # storpiato dal trascrittore
+        "Fraco.",  # misspelled by the transcriber
         "Frank, tell me a joke",
         "No, Franco, non così",
         "Senti Franco, una cosa",
         "Francò, dimmi",
     ],
 )
-def test_chiamato(text):
+def test_called(text):
     assert called(text)
 
 
@@ -35,16 +35,16 @@ def test_chiamato(text):
         "Fanno la partita domani",
         "Banco di prova",
         "Francia o Spagna?",
-        "Ehi ehi ehi Franco",  # troppi saluti davanti
+        "Ehi ehi ehi Franco",  # too many greetings first
         "",
         "Hello",
     ],
 )
-def test_non_chiamato(text):
+def test_not_called(text):
     assert not called(text)
 
 
-def test_eco():
+def test_echo():
     said = "Ecco la carbonara, sono cinque passaggi. Buon appetito!"
     assert echo("sono cinque passaggi", said)
     assert echo("Ecco la carbonara, sono cinque passaggi.", said)
@@ -52,6 +52,18 @@ def test_eco():
     assert not echo("qualcosa", "")
 
 
-def test_silenzio():
+def test_silence():
     assert silent("…") and silent("...") and silent(" … ")
     assert not silent("") and not silent("… ah, ok")
+
+
+@pytest.mark.parametrize(
+    "text", ["Franco, stop", "basta", "grazie", "ok grazie mille", "Franco basta così", "lascia stare"]
+)
+def test_stopped(text):
+    assert stopped(text)
+
+
+@pytest.mark.parametrize("text", ["basta pasta per stasera", "metti un timer", "grazie, mi dici che ore sono?", "ok"])
+def test_not_stopped(text):
+    assert not stopped(text)

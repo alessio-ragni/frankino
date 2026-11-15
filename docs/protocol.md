@@ -1,57 +1,62 @@
-# Il protocollo fra tablet e server
+# The protocol between tablet and server
 
-Un websocket: `ws://<server>:4390/ws?token=<FRANKINO_TOKEN>&device=<nome>`.
-Gettone sbagliato → il server chiude con codice 4401.
+One websocket: `ws://<server>:4390/ws?token=<FRANKINO_TOKEN>&device=<nome>`.
+Wrong token → the server closes with code 4401.
 
-I messaggi di testo sono JSON con un campo `type`. L'audio viaggia in frame binari:
-**PCM 16 bit, mono, little-endian**. Dal tablet a **16 kHz**; dal server al `rate` dichiarato
-nel `say` che lo precede (24 kHz con OpenAI ed ElevenLabs).
+Text messages are JSON with a `type` field. Audio travels in binary frames:
+**16-bit PCM, mono, little-endian**. From the tablet at **16 kHz**; from the server at the `rate`
+declared in the `say` that comes before it (24 kHz with OpenAI and ElevenLabs).
 
-## Dal tablet al server
+How the whole thing behaves, without code, is in [`how-it-works.md`](how-it-works.md).
 
-| type | campi | cosa vuol dire |
+## From the tablet to the server
+
+| type | fields | what it means |
 |---|---|---|
-| `start` | `rate` (default 16000), `why` | sto per mandare la voce. Se Frankino stava parlando, tace. `why` dice perché il tablet ascolta: `name` (ha sentito il nome; è anche il valore se manca), `follow` (subito dopo una risposta, senza nome), `button` (pulsante «Parla»), `key` (tasto laterale) |
-| *(binario)* | PCM | pezzi di voce, fra `start` ed `end` |
-| `end` | `rate` | ho finito di parlare: trascrivi e rispondi |
-| `text` | `text` | una frase scritta, al posto della voce |
-| `action` | `name`, `surfaceId`, `sourceComponentId`, `context` | un tocco su un componente A2UI (il messaggio `action` di A2UI) |
-| `stop` | — | zitto: interrompe voce e pensiero |
+| `start` | `rate` (default 16000), `why` | I am about to send voice. If Frankino was speaking, it goes quiet. `why` says why the tablet is listening: `name` (it heard the name; also the value when missing), `follow` (right after an answer, without the name), `button` (the talk button), `key` (side key) |
+| *(binary)* | PCM | pieces of voice, between `start` and `end` |
+| `end` | `rate` | I have finished speaking: transcribe and answer |
+| `text` | `text` | a written sentence, instead of voice |
+| `action` | `name`, `surfaceId`, `sourceComponentId`, `context` | a tap on an A2UI component (the A2UI `action` message) |
+| `stop` | — | quiet: stops both voice and thinking |
 
-Le azioni `confirm_yes`, `confirm_always` e `confirm_no` rispondono alla scheda di conferma. Le
-altre arrivano a Claude come frase.
+The actions `confirm_yes`, `confirm_always` and `confirm_no` answer the confirmation card. The
+others reach Claude as a sentence.
 
-## Dal server al tablet
+## From the server to the tablet
 
-| type | campi | cosa vuol dire |
+| type | fields | what it means |
 |---|---|---|
-| `ready` | `voice`, `ears`, `rate`, `a2ui` | collegato. `voice`/`ears` falsi = server senza voce o trascrizione |
-| `heard` | `text`, `recording` | quello che ha capito |
-| `thinking` | — | sta pensando (mostra qualcosa) |
-| `say` | `text`, `rate` | sta per dire questa frase; seguono i frame binari dell'audio |
-| `say_end` | — | fine dell'audio di quella frase |
-| `a2ui` | `messages` | messaggi A2UI da passare al renderer, nell'ordine |
-| `done` | `ms` | fine del turno, dopo l'ultima frase: si può tornare ad ascoltare |
-| `ignored` | `reason` | non era per Frankino: nessuna risposta, audio e testo già cancellati. Si torna ad aspettare il nome, senza seguito |
-| `error` | `text` | qualcosa non va lato server |
+| `ready` | `voice`, `ears`, `rate`, `a2ui` | connected. `voice`/`ears` false = server without voice or transcription |
+| `heard` | `text`, `recording` | what it understood |
+| `thinking` | — | it is thinking (show something) |
+| `say` | `text`, `rate` | it is about to say this sentence; the binary audio frames follow |
+| `say_end` | — | end of the audio for that sentence |
+| `a2ui` | `messages` | A2UI messages to pass to the renderer, in order |
+| `done` | `ms` | end of the turn, after the last sentence: listening can start again |
+| `ignored` | `reason` | it was not for Frankino: no answer, audio and text already deleted. Go back to waiting for the name, with no follow-up |
+| `error` | `text` | something is wrong on the server side |
 
-## Conferme
+## Confirmations
 
-Quando Claude vuole usare uno strumento che non è di sola lettura, il server manda una superficie
-A2UI con `surfaceId: "conferma"` e dice «Lo faccio?». La risposta può arrivare a voce («sì», «no»,
-«non chiedermelo più») o con i pulsanti (`confirm_*`). Dopo la risposta la superficie viene
-cancellata con `deleteSurface`. Senza risposta per `FRANKINO_CONFIRM_TIMEOUT_S` vale come no.
+When Claude wants to use a tool that is not read-only, the server sends an A2UI surface with
+`surfaceId: "conferma"` and says «Lo faccio?» (shall I do it?). The answer can come by voice («sì»,
+«no», «non chiedermelo più»: yes, no, don't ask me again) or with the buttons (`confirm_*`). After
+the answer the surface is removed with `deleteSurface`. No answer within
+`FRANKINO_CONFIRM_TIMEOUT_S` counts as no.
 
-## Non era per Frankino
+## Not meant for Frankino
 
-Il tablet si sveglia col suo riconoscitore, che può sbagliare. Il server ricontrolla sulla
-trascrizione vera:
+The tablet wakes up with its own recognizer, which can be wrong. The server checks again on the
+real transcript:
 
-- `why: name` e la frase non comincia col nome (al più dopo due saluti come «ehi», «ciao», «senti»):
-  `ignored` con `reason: "non chiamato"`;
-- `why: follow` e la frase è l'eco di quello che Frankino ha appena detto: `ignored`, `"eco"`;
-- `why: follow` e Claude giudica che parlassero fra loro (risponde solo «…»): `ignored`, `"non per me"`.
+- `why: name` and the sentence does not start with the name (at most after two greetings such as
+  «ehi», «ciao», «senti»): `ignored` with `reason: "non chiamato"` (not called);
+- `why: follow` and the sentence is the echo of what Frankino has just said: `ignored`, `"eco"`
+  (echo);
+- `why: follow` and Claude judges that people were talking to each other (it answers only «…»):
+  `ignored`, `"non per me"` (not for me).
 
-In tutti e tre i casi Claude non risponde a voce e della registrazione resta solo la riga con data,
-durata e motivo: audio e testo vengono cancellati subito. Con `button` e `key` non si controlla
-niente: l'intenzione è esplicita.
+In all three cases Claude does not answer aloud and all that is left of the recording is the row
+with date, length and reason: audio and text are deleted at once. With `button` and `key` nothing
+is checked: the intent is explicit.

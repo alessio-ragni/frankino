@@ -1,102 +1,105 @@
-# Come funziona Frankino
+# How Frankino works
 
-Per chi vuole capire cosa succede quando parli a Frankino, senza leggere il codice. Come si installa
-da zero sta in [`messa-in-opera.md`](messa-in-opera.md); i messaggi fra tablet e server in
-[`protocollo.md`](protocollo.md).
+For anyone who wants to understand what happens when you talk to Frankino, without reading the
+code. How to install it from scratch is in [`deployment.md`](deployment.md); the messages between
+tablet and server are in [`protocol.md`](protocol.md).
 
-## Il giro di una domanda
+## The path of a question
 
-1. **Il tablet aspetta il nome.** Un riconoscitore piccolo, sul tablet, sente solo una manciata di
-   parole: i nomi (Franco, Franchino, Frankino, Franko) e i saluti che ci vanno davanti. Finché non
-   sente il nome non manda niente a nessuno.
-2. **Sentito il nome, registra** la tua frase, compresi i tre secondi prima, così il nome non si
-   perde. Smette quando smetti di parlare.
-3. **Il server trascrive** la registrazione con OpenAI (`gpt-4o-transcribe`). Riconosce da solo
-   italiano e inglese.
-4. **Secondo controllo.** Se la frase trascritta non comincia col nome, il tablet si era sbagliato.
-   La registrazione si butta subito, audio e testo, e Frankino non dice niente.
-5. **Claude pensa.** Il testo va a Claude Code, che gira sul server col tuo abbonamento. Può
-   cercare sul web, usare i tuoi connettori di claude.ai e disegnare sullo schermo.
-6. **Risponde a voce mentre ancora pensa.** Ogni frase pronta viene letta da OpenAI
-   (`gpt-4o-mini-tts`, voce «ash») e arriva al tablet a pezzetti.
-7. **Per qualche secondo ascolta senza nome**, così puoi continuare il discorso. Se in quei secondi
-   sente la sua stessa voce, o gente che parla fra sé, la butta e non risponde.
+1. **The tablet waits for the name.** A small recognizer, on the tablet, hears only a handful of
+   words: the names (Franco, Franchino, Frankino, Franko) and the greetings that go before them.
+   Until it hears the name, it sends nothing to anyone.
+2. **Once it hears the name, it records** your sentence, including the three seconds before, so the
+   name is not lost. It stops when you stop talking.
+3. **The server transcribes** the recording with OpenAI (`gpt-4o-transcribe`). It recognizes
+   Italian and English by itself.
+4. **Second check.** If the transcribed sentence does not start with the name, the tablet got it
+   wrong. The recording is thrown away at once, audio and text, and Frankino says nothing.
+5. **Claude thinks.** The text goes to Claude Code, which runs on the server with your
+   subscription. It can search the web, use your claude.ai connectors and draw on the screen.
+6. **It answers aloud while it is still thinking.** Each sentence, once ready, is read out by
+   OpenAI (`gpt-4o-mini-tts`, voice «ash») and reaches the tablet in small pieces.
+7. **For a few seconds it listens without the name**, so you can carry on the conversation. If in
+   those seconds it hears its own voice, or people talking to each other, it throws that away and
+   does not answer.
 
-## L'interruttore del microfono
+## The microphone switch
 
-Come il tasto di Alexa: quando è spento il microfono è chiuso davvero, e il pallino verde di Android
-in alto sparisce. Si comanda da tre posti:
+Like the button on Alexa: when it is off, the microphone is really closed, and Android's green dot
+at the top goes away. You control it from three places:
 
-- il pulsante grande in alto nell'app;
-- la notifica fissa di Frankino, con «Spegni microfono» o «Riaccendi microfono»;
-- il riquadro «Frankino» nel pannello rapido, la tendina che scende dall'alto.
+- the big button at the top of the app;
+- Frankino's persistent notification, with an action to turn the microphone off or back on;
+- the «Frankino» tile in quick settings, the panel that slides down from the top.
 
-Resta com'è anche dopo un riavvio. A microfono spento, il pulsante «Parla» o il tasto laterale lo
-aprono per una domanda sola, poi si richiude.
+It stays as it is even after a restart. With the microphone off, the talk button or the side key
+open it for a single question, then it closes again.
 
-## Cosa resta e dove
+## What is kept and where
 
-| Cosa | Dove | Per quanto |
+| What | Where | For how long |
 |---|---|---|
-| Audio delle domande | sul server, cartella dei dati | 30 giorni, poi si cancella da solo |
-| Testo delle domande e delle risposte | database sul server, copia notturna in un archivio privato su AWS | finché non si cancella |
-| Registrazioni che non erano per Frankino | solo data, durata e motivo | l'audio e il testo spariscono subito |
-| Conversazioni di Claude | da nessuna parte: Claude Code non le salva su disco | finché il server non si riavvia |
+| Audio of the questions | on the server, in the data folder | 30 days, then it deletes itself |
+| Text of the questions and answers | database on the server, nightly copy to a private archive on AWS | until it is deleted |
+| Recordings that were not meant for Frankino | only date, length and reason | audio and text disappear at once |
+| Claude conversations | nowhere: Claude Code does not save them to disk | until the server restarts |
 
-Su GitHub c'è solo il codice: niente audio, niente trascrizioni, niente segreti.
+GitHub holds only the code: no audio, no transcripts, no secrets.
 
-## Il cervello e quanto costa
+## The brain and what it costs
 
-- **Modello:** Claude Haiku 5.5 con poco ragionamento, scelto per rispondere in fretta, che a voce
-  conta più di tutto. Per domande difficili si cambia con una riga nella configurazione del server
-  (`FRANKINO_MODEL=claude-sonnet-5-5`, oppure `claude-opus-5-5`, e `FRANKINO_EFFORT`).
-- **Claude è dentro l'abbonamento** di chi ospita il server: nessuna chiave a consumo, nessun costo
-  in più per domanda. Il modello cambia solo quanto si consuma dei limiti dell'abbonamento: Haiku
-  molto meno di Sonnet.
-- **OpenAI** (capire e parlare) si paga a consumo: circa due decimi di centesimo per domanda.
-- **Il server** su AWS costa circa 15 $ al mese, sempre acceso.
+- **Model:** Claude Haiku 5.5 with little reasoning, chosen to answer quickly, which matters more
+  than anything when you talk. For hard questions you change one line in the server configuration
+  (`FRANKINO_MODEL=claude-sonnet-5-5`, or `claude-opus-5-5`, and `FRANKINO_EFFORT`).
+- **Claude is part of the subscription** of whoever hosts the server: no pay-per-use key, no extra
+  cost per question. The model only changes how much of the subscription's limits you use: Haiku
+  much less than Sonnet.
+- **OpenAI** (understanding and speaking) is paid per use: about two tenths of a cent per question.
+- **The server** on AWS costs about $15 a month, always on.
 
-## I connettori
+## The connectors
 
-Frankino vede gli stessi connettori che hai su claude.ai: WhatsApp, Gmail, Google Calendar, Google
-Drive e gli altri collegati al tuo account. Se un connettore chiede di essere ricollegato, lo si fa
-su claude.ai e Frankino lo vede al riavvio successivo.
+Frankino sees the same connectors you have on claude.ai: WhatsApp, Gmail, Google Calendar, Google
+Drive and the others linked to your account. If a connector asks to be reconnected, you do it on
+claude.ai and Frankino sees it at the next restart.
 
-Prima di qualunque azione verso fuori (mandare un messaggio, creare un evento, cancellare un file)
-mostra cosa sta per fare e chiede «Lo faccio?». Rispondi «sì», «no» o «non chiedermelo più», a
-voce o coi pulsanti. Leggere invece non chiede niente.
+Before any outward action (sending a message, creating an event, deleting a file) it shows what it
+is about to do and asks «Lo faccio?» (shall I do it?). You answer «sì», «no» or «non chiedermelo
+più» (yes, no, don't ask me again), by voice or with the buttons. Reading, on the other hand, asks
+nothing.
 
-## Cosa cambia rispetto a Claude
+## How it differs from Claude
 
-- Gli parli e ti risponde a voce, a mani libere.
-- Mostra sullo schermo ricette, liste e confronti invece di scriverli in chat.
-- Chiede sempre conferma prima di fare qualcosa verso fuori.
-- Non tocca file e non lancia comandi: può solo cercare, leggere pagine, usare i connettori e
-  disegnare sullo schermo.
-- Non ricorda le conversazioni passate e non compare nella cronologia di claude.ai.
+- You talk to it and it answers aloud, hands free.
+- It shows recipes, lists and comparisons on the screen instead of writing them in a chat.
+- It always asks for confirmation before doing anything outward.
+- It does not touch files or run commands: it can only search, read pages, use the connectors and
+  draw on the screen.
+- It does not remember past conversations and does not show up in your claude.ai history.
 
-## Lo schermo (A2UI)
+## The screen (A2UI)
 
-Claude ha uno strumento, «mostra», con cui descrive una scheda nel formato aperto A2UI. Il tablet la
-disegna col componente ufficiale di Google per Android. Per provarlo:
+Claude has a tool, «mostra» (show), with which it describes a card in the open A2UI format. The
+tablet draws it with Google's official Android component. To try it:
 
-- «Franco, fammi vedere la carbonara per due»;
-- «Franco, mostrami la lista della spesa per una pizza»;
-- «Franco, confrontami tre robot aspirapolvere».
+- «Franco, fammi vedere la carbonara per due» (show me carbonara for two);
+- «Franco, mostrami la lista della spesa per una pizza» (show me the shopping list for a pizza);
+- «Franco, confrontami tre robot aspirapolvere» (compare three robot vacuums for me).
 
-## Cosa ci si può costruire sopra
+## What you can build on top
 
-Tutto quello che Claude sa fare con i tuoi connettori diventa una cosa da chiedere a voce: leggere
-la posta del giorno, mettere un evento, mandare un WhatsApp dopo averlo visto sullo schermo. Le
-aggiunte naturali sono quattro:
+Anything Claude can do with your connectors becomes something you can ask for by voice: reading
+the day's mail, adding an event, sending a WhatsApp after seeing it on the screen. There are four
+natural additions:
 
-- nuovi connettori su claude.ai, che Frankino vede subito;
-- schede nuove sullo schermo (timer, liste che si spuntano, foto);
-- una memoria sua, che oggi non c'è;
-- voci diverse, perché il servizio della voce si cambia senza toccare il resto.
+- new connectors on claude.ai, which Frankino sees right away;
+- new cards on the screen (timers, lists you can tick off, photos);
+- a memory of its own, which it does not have today;
+- different voices, because the voice service can be changed without touching the rest.
 
-## Trovare l'app sul tablet
+## Finding the app on the tablet
 
-L'app installata dal computer non finisce sulla schermata Home ma nell'elenco delle app: scorri
-dal basso verso l'alto e cerca «Frankino». Per averla sulla Home tienila premuta e trascinala. Il
-servizio gira comunque da solo, anche senza aprirla, con la notifica fissa.
+An app installed from the computer does not land on the Home screen but in the app list: swipe up
+from the bottom and look for «Frankino». To have it on the Home screen, press and hold it and drag
+it there. The service runs by itself anyway, even without opening it, with the persistent
+notification.

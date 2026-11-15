@@ -9,13 +9,13 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 
 /**
- * La parola d'avvio. Il riconoscitore sul tablet ha una grammatica CHIUSA: i nomi, qualche
- * parola-esca e `[unk]`. Il parlato di casa non è rappresentabile lì dentro, quindi non viene
- * trascritto: finché non sente il nome, al server non parte niente.
+ * The wake word. The on-tablet recognizer has a CLOSED grammar: the names, a few decoy words and
+ * `[unk]`. Household speech cannot be represented in there, so it is not transcribed: until it
+ * hears the name, nothing goes to the server.
  *
- * Le esche sono parole con cui «franco» si confonde (franchi, Francia, francese…): danno a quei
- * suoni una casella loro, così il nome smette di raccogliere tutto ciò che gli somiglia. Non
- * escono mai di qui: servono a decidere, poi spariscono come `[unk]`.
+ * Decoys are words «franco» gets confused with (franchi, Francia, francese…): they give those
+ * sounds a box of their own, so the name stops collecting everything that resembles it. They never
+ * leave this file: they help decide, then vanish like `[unk]`.
  */
 object Wake {
     val NAMES = listOf("franco", "franko", "franchino", "frankino")
@@ -27,15 +27,15 @@ object Wake {
         "trieste", "pagato", "lingua", "vinto",
     )
 
-    /** Saluti ammessi davanti al nome: «ehi Franco», «ciao Franchino», «hey Franko». */
+    /** Greetings allowed before the name: «ehi Franco», «ciao Franchino», «hey Franko». */
     val GREETINGS = listOf("ehi", "hey", "hei", "ei", "ciao", "hi")
 
     const val UNKNOWN = "[unk]"
 
-    /** Sotto questa sicurezza, nel risultato finale, non è un richiamo. Tarata con `tools/prova_parola.py`. */
+    /** Below this confidence, in the final result, it is not a call. Tuned with `tools/prova_parola.py`. */
     const val MIN_CONFIDENCE = 0.5
 
-    /** Al massimo due saluti davanti al nome. */
+    /** At most two greetings before the name. */
     const val MAX_GREETINGS = 2
 
     enum class Verdict { YES, NO, MAYBE }
@@ -45,11 +45,11 @@ object Wake {
     ).toString()
 
     /**
-     * Dal JSON di vosk (parziale o finale) a «mi hanno chiamato»: SÌ, NO, o FORSE quando il nome è
-     * l'ultima cosa sentita e non si sa ancora se dopo arriva un'esca («il franco… svizzero»).
+     * From vosk's JSON (partial or final) to "they called me": YES, NO, or MAYBE when the name is
+     * the last thing heard and it is not known yet whether a decoy follows («il franco… svizzero»).
      *
-     * Regola: saltati i saluti, la prima parola dev'essere un nome, e quella dopo non un'esca.
-     * «Ho visto Franco» non sveglia: il nome non è in testa. Il resto non si conserva.
+     * Rule: greetings skipped, the first word must be a name, and the next one not a decoy.
+     * «Ho visto Franco» does not wake it: the name is not first. Nothing else is kept.
      */
     fun verdict(voskJson: String): Verdict {
         val obj = try {

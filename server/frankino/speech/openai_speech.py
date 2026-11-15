@@ -1,4 +1,4 @@
-"""OpenAI: gpt-4o-transcribe per capire, gpt-4o-mini-tts per parlare (PCM a 24 kHz)."""
+"""OpenAI: gpt-4o-transcribe to understand, gpt-4o-mini-tts to speak (PCM at 24 kHz)."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ from collections.abc import AsyncIterator
 from frankino.config import Settings
 
 VOICE_STYLE = (
-    "Parla nella lingua del testo (di solito italiano), con tono caldo e naturale, come un amico di casa. "
-    "Ritmo sciolto, niente enfasi da annunciatore."
+    "Speak in the language of the text (usually Italian), warm and natural, like a friend at home. "
+    "Easy pace, no announcer emphasis."
 )
 
 
 def _client(s: Settings):
     if not s.openai_api_key:
-        raise RuntimeError("Manca OPENAI_API_KEY nel .env del server.")
+        raise RuntimeError("OPENAI_API_KEY is missing from the server .env.")
     from openai import AsyncOpenAI
 
     return AsyncOpenAI(api_key=s.openai_api_key)
@@ -31,8 +31,8 @@ class OpenAITranscriber:
         out = await self.client.audio.transcriptions.create(
             model=self.model,
             file=("voce.wav", wav, "audio/wav"),
-            # Lingua riconosciuta da sé (italiano o inglese). Niente suggerimento coi nomi: sul silenzio
-            # il trascrittore lo ripete tale e quale, e sembrerebbe un richiamo.
+            # Language detected on its own (Italian or English). No hint with the names: on silence the
+            # transcriber repeats it word for word, and it would look like a call.
         )
         return (out.text or "").strip()
 
