@@ -35,6 +35,29 @@ log = logging.getLogger("frankino.agent")
 PROMPT = Path(__file__).parent / "prompts" / "character.md"
 OWN = ("screen", "home")
 
+# Tools of the household connectors a voice never needs. Each description is sent with every
+# request: dropping these took the connectors from about 54k tokens to about 32k (Gmail alone
+# was 30k), and every answer starts that much sooner.
+UNUSED_TOOLS = [
+    *(
+        f"mcp__claude_ai_Gmail__{t}"
+        for t in (
+            "apply_sensitive_message_label apply_sensitive_thread_label create_label delete_draft delete_label "
+            "download_gmail_attachment forward get_draft label_message label_thread list_drafts list_labels "
+            "mark_message_spam mark_thread_spam trash_message trash_thread unlabel_message unlabel_thread "
+            "unmark_message_spam unmark_thread_spam untrash_message untrash_thread update_draft update_label "
+            "update_message_labels"
+        ).split()
+    ),
+    *(
+        f"mcp__claude_ai_Google_Drive__{t}"
+        for t in (
+            "copy_file create_file download_file_content get_file_permissions get_shared_drive_metadata "
+            "list_file_revisions list_shared_drives share_file trash_file update_file"
+        ).split()
+    ),
+]
+
 
 def system_prompt(s: Settings) -> str:
     return PROMPT.read_text(encoding="utf-8")
@@ -116,6 +139,7 @@ class Agent:
             effort=self.s.effort or None,
             thinking={"type": "disabled"},
             tools=["WebSearch", "WebFetch"],
+            disallowed_tools=UNUSED_TOOLS,
             mcp_servers=self.servers,
             setting_sources=["user"],
             settings='{"disableAllHooks": true}',

@@ -18,3 +18,10 @@ def test_no_markdown_spoken():
 def test_a_sentence_without_an_end_is_not_lost():
     s = Splitter(max_chars=20)
     assert s.feed("parola " * 10)
+
+
+def test_the_first_piece_may_stop_at_a_comma():
+    s = Splitter(eager_first=True)
+    assert s.feed("Domani hai tre impegni in agenda, il primo") == ["Domani hai tre impegni in agenda,"]
+    assert s.feed(" alle sette, poi") == []  # only the first piece is eager
+    assert s.feed(" il resto. ") == ["il primo alle sette, poi il resto."]

@@ -15,6 +15,7 @@ import unicodedata
 from collections.abc import Iterator
 
 MAX_CHARS = 240
+EAGER_CHARS = 30
 
 END = re.compile(r"(?<=[.!?…;:])\s+|\n+")
 _PAUSE = re.compile(r"(?<=[,;:—–])\s+")
@@ -82,9 +83,11 @@ def _fragments(piece: str, limit: int) -> Iterator[str]:
 class Splitter:
     """Takes the pieces as they come and returns the sentences ready to say."""
 
-    def __init__(self, max_chars: int = MAX_CHARS) -> None:
+    def __init__(self, max_chars: int = MAX_CHARS, eager_first: bool = False) -> None:
         self.max_chars = max_chars
         self._buffer = ""
+        # The very first piece may stop at a comma: the voice starts a moment sooner.
+        self._eager = eager_first
 
     def feed(self, delta: str) -> list[str]:
         if not delta:
@@ -94,9 +97,15 @@ class Splitter:
         last = None
         for match in END.finditer(self._buffer):
             last = match
+        if last is None and self._eager and len(self._buffer) >= EAGER_CHARS:
+            for match in _PAUSE.finditer(self._buffer):
+                if match.start() >= EAGER_CHARS:
+                    last = match
+                    break
         if last is not None:
             ready, self._buffer = self._buffer[: last.end()], self._buffer[last.end() :]
             out.extend(sentences(ready, self.max_chars))
+            self._eager = False
         while len(self._buffer) > self.max_chars:
             head, self._buffer = self._buffer[: self.max_chars], self._buffer[self.max_chars :]
             out.extend(sentences(head, self.max_chars))

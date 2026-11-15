@@ -415,7 +415,7 @@ class Session:
         self._marks = {"text": started}
         self._touched = []
         await self._send({"type": "thinking"})
-        splitter = Splitter()
+        splitter = Splitter(eager_first=True)
         lead = Lead(follow)
         error, outcome = None, "ok"
         answered = ""
