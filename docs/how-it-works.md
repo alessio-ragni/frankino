@@ -32,7 +32,7 @@ even after a restart. With the microphone off, Android's green dot at the top go
    words: the names (Franco, Franchino, Frankino, Franko) and the greetings that go before them.
    Until it hears the name, it sends nothing to anyone. When it does, it plays a short note.
 2. **It records your sentence**, including the three seconds before, so the name is not lost. A
-   pause of less than a second means you are done.
+   pause of about a second means you are done.
 3. **The thinking sound starts at once**, so you know it heard you.
 4. **The server transcribes** the recording with OpenAI (`gpt-4o-transcribe`), Italian or English.
 5. **Second check.** If the transcribed sentence does not start with the name, the tablet got it
